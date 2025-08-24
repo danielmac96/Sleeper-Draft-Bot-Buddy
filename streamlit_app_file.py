@@ -1,6 +1,8 @@
 import requests
 import pandas as pd
 import streamlit as st
+import glob
+import os
 
 
 @st.cache_data
@@ -31,6 +33,8 @@ def get_all_players():
         'player_id', 'first_name', 'last_name', 'years_exp', 'primary_fantasy_position',
         'team', 'bye_week', 'depth_chart_position', 'depth_chart_order'
     ]
+    df['first_name'] = df['first_name'].str.replace(" ", "", regex=False)
+    df['last_name'] = df['last_name'].str.replace(" ", "", regex=False)
     return df[cols].reset_index(drop=True)
 
 
@@ -113,7 +117,7 @@ def build_full_player_df(player_info, season_stats, season_projections):
     return df.reset_index(drop=True)
 
 
-def pull_live_draft(draft_id: str, full_player_stat_proj):
+def pull_live_draft(draft_id: str):
     draft_url = f"https://api.sleeper.app/v1/draft/{draft_id}/picks"
     draft_picks_response = requests.get(draft_url).json()
     draft_picks_df = pd.json_normalize(draft_picks_response)
@@ -122,11 +126,11 @@ def pull_live_draft(draft_id: str, full_player_stat_proj):
 
     draft_pick_selected_columns = ['round', 'draft_slot', 'pick_no', 'player_id']
     draft_picks_df_clean = draft_picks_df[draft_pick_selected_columns]
-    draft_picks_live = pd.merge(draft_picks_df_clean, full_player_stat_proj, on='player_id', how='left')
 
-    return draft_picks_live.reset_index(drop=True)
+    return draft_picks_df_clean
 
 
+@st.cache_data
 def league_rosters_scoring(league_id):
     league_url = f"https://api.sleeper.app/v1/league/{league_id}"
     league_settings_response = requests.get(league_url).json()
@@ -149,127 +153,168 @@ def league_rosters_scoring(league_id):
     scoring_structure_dict = {k: v for k, v in scoring_settings.items() if k in relevant_scoring_keys}
     return scoring_structure_dict, roster_limit_dict, roster_structure
 
+
+def clean_column_names(df):
+    """Cleans column names to be lowercase and replaces spaces with underscores."""
+    df.columns = df.columns.str.lower().str.replace(' ', '_')
+    return df
+
+
+def process_fantasypros_df(file_path):
+    """Reads a FantasyPros CSV, cleans column names, processes SOS SEASON, adds position, and splits player name."""
+    df = pd.read_csv(file_path, header=0)
+    df = clean_column_names(df)
+
+    # Extract position from filename
+    filename = os.path.basename(file_path)
+    position = '_'.join(filename.split('_')[:4]).split('_')[-1]
+    df['position'] = position
+
+    # Extract the first character of 'sos_season'
+    if 'sos_season' in df.columns:
+        df['sos_season'] = df['sos_season'].astype(str).str[0]
+
+    df['player_name'] = df['player_name'].str.replace("St. Brown", "St.Brown", regex=False).str.replace(
+        "Marquise Brown", "Hollywood Brown", regex=False)
+    # Split player_name into first_name and last_name
+    if 'player_name' in df.columns:
+        name_parts = df['player_name'].str.split(' ')
+        df['first_name'] = name_parts.str[0].str.replace(" ", "", regex=False)
+        # Handle names with more than two parts, taking the last part as the last name
+        df['last_name'] = name_parts.str[1].str.replace(" ", "", regex=False)
+    df = df.drop(columns=['rk', 'bye_week', 'ecr_vs._adp'], errors='ignore')
+    df['team'] = df['team'].replace('JAC', 'JAX')
+    return df[['first_name', 'last_name', 'position', 'sos_season', 'tiers']]
+
+
 st.title("Fantasy Football Projections")
 scoring_structure_dict, roster_limit_dict, roster_structure = league_rosters_scoring('1182045780030189568')
 player_info = get_all_players()
 season_stats = get_season_stats(2024)
 season_projections = get_season_projections(2025)
 full_player_data = build_full_player_df(player_info, season_stats, season_projections)
-draft_picks_live = pull_live_draft('1232794131110055936', full_player_data)
+file_paths = glob.glob("FantasyPros_2025_Draft_*.csv")
+all_fantasypros_df = pd.concat([process_fantasypros_df(f) for f in file_paths], ignore_index=True)
+draft_picks_live = pull_live_draft('1232794131110055936')
 
-import streamlit as st
-import pandas as pd
+### Create and Clean Final Master Table
 
-# --- Assume full_player_data & draft_picks_live are already loaded ---
-df = full_player_data.copy()
-df["name"] = df["first_name"] + " " + df["last_name"]
+full_player_data_test_tiers = full_player_data.copy()
+full_player_data_test_tiers["name"] = full_player_data_test_tiers["first_name"] + " " + full_player_data_test_tiers[
+    "last_name"]
 
-# Exclude already drafted players
-drafted_ids = set(draft_picks_live["player_id"])
-available_df = df[~df["player_id"].isin(drafted_ids)]
+final_base_data = pd.merge(
+    full_player_data_test_tiers,
+    all_fantasypros_df,
+    left_on=['first_name', 'last_name', 'primary_fantasy_position'],
+    right_on=['first_name', 'last_name', 'position'],
+    how='left'
+)[[
+    # Player Basics and Full Season Data
+    'player_id', 'name', 'position', 'stats_calc_pts_half_ppr', 'proj_calc_pts_half_ppr',
+    # Player Rankings
+    'stats_position_2024_rank', 'proj_position_2025_rank', 'tiers', 'sos_season', 'stats_gp',
+    # Additional Player Details
+    'proj_adp_half_ppr', 'proj_adp_2qb', 'team', 'bye_week', 'depth_chart_order', 'years_exp',
+    # Passing
+    'stats_pass_yd', 'stats_pass_td', 'stats_pass_int',
+    'proj_pass_yd', 'proj_pass_td', 'proj_pass_int',
+    # Rushing
+    'stats_rush_att', 'stats_rush_yd', 'stats_rush_td',
+    'proj_rush_att', 'proj_rush_yd', 'proj_rush_td',
+    # Receiving
+    'stats_rec_tgt', 'stats_rec', 'stats_rec_yd', 'stats_rec_td',
+    'proj_rec', 'proj_rec_yd', 'proj_rec_td'
+]]
 
-# ---------- Streamlit UI ----------
-st.set_page_config(layout="wide")
-st.title("🏈 Fantasy Draft Dashboard")
+final_base_data_draft_flag = pd.merge(
+    final_base_data,
+    draft_picks_live, on='player_id', how='left')
 
-tab1, tab2, tab3 = st.tabs(["📊 Player Pool", "📋 Draft Board + Scarcity", "🏈 My Roster"])
+# -----------------------------
+# Utility: Column groups
+# -----------------------------
+COLUMN_GROUPS = {
+    "Projections": [
+        "proj_calc_pts_half_ppr", "proj_position_2025_rank",
+        "proj_adp_half_ppr", "proj_adp_2qb",
+        "proj_pass_yd", "proj_pass_td", "proj_pass_int",
+        "proj_rush_att", "proj_rush_yd", "proj_rush_td",
+        "proj_rec", "proj_rec_yd", "proj_rec_td",
+    ],
+    "Stats": [
+        "stats_calc_pts_half_ppr", "stats_position_2024_rank", "stats_gp",
+        "stats_pass_yd", "stats_pass_td", "stats_pass_int",
+        "stats_rush_att", "stats_rush_yd", "stats_rush_td",
+        "stats_rec_tgt", "stats_rec", "stats_rec_yd", "stats_rec_td",
+    ],
+    "Draft Info": ["round", "draft_slot", "pick_no"],
+    "All": []  # Will expand to full df
+}
 
-# --- TAB 1: Player Pool (keeps QB/RB/WR/TE tables) ---
-with tab1:
-    st.subheader("Available Players by Position")
-    top_left, top_right = st.columns(2)
+CORE_COLUMNS = ["player_id", "name", "position", "team"]
 
-    with top_left:
-        st.markdown("### Quarterbacks")
-        st.dataframe(
-            available_df[available_df["primary_fantasy_position"] == "QB"]
-            .sort_values("proj_overall_2025_rank")
-            .head(20),
-            use_container_width=True
-        )
+# -----------------------------
+# Styling for drafted players
+# -----------------------------
+def highlight_drafted(row):
+    if pd.notna(row.get("pick_no")):
+        return ["color: red; text-decoration: line-through" for _ in row]
+    return ["" for _ in row]
 
-    with top_right:
-        st.markdown("### Running Backs")
-        st.dataframe(
-            available_df[available_df["primary_fantasy_position"] == "RB"]
-            .sort_values("proj_overall_2025_rank")
-            .head(20),
-            use_container_width=True
-        )
+# -----------------------------
+# Main App
+# -----------------------------
+st.title("Fantasy Draft Dashboard")
 
-    bottom_left, bottom_right = st.columns(2)
+# Controls
+col1, col2, col3 = st.columns([1, 1, 1])
+with col1:
+    refresh_clicked = st.button("🔄 Refresh Data")
+with col2:
+    column_group = st.radio("Select column group:", list(COLUMN_GROUPS.keys()))
+with col3:
+    show_drafted = st.checkbox("Show Drafted", value=False)
 
-    with bottom_left:
-        st.markdown("### Wide Receivers")
-        st.dataframe(
-            available_df[available_df["primary_fantasy_position"] == "WR"]
-            .sort_values("proj_overall_2025_rank")
-            .head(20),
-            use_container_width=True
-        )
+# Load live data if refreshed
+if refresh_clicked:
+    draft_picks_live = load_draft_picks_live()
+    final_base_data_draft_flag.update(draft_picks_live.set_index("player_id"))
 
-    with bottom_right:
-        st.markdown("### Tight Ends")
-        st.dataframe(
-            available_df[available_df["primary_fantasy_position"] == "TE"]
-            .sort_values("proj_overall_2025_rank")
-            .head(20),
-            use_container_width=True
-        )
+# Filter columns
+if column_group == "All":
+    cols_to_show = final_base_data_draft_flag.columns.tolist()
+else:
+    cols_to_show = CORE_COLUMNS + COLUMN_GROUPS[column_group]
+    cols_to_show = [c for c in cols_to_show if c in final_base_data_draft_flag.columns]
 
-# --- TAB 2: Draft Board + Scarcity ---
-with tab2:
-    st.subheader("📋 Draft Board & Positional Scarcity")
+# Apply drafted toggle
+if not show_drafted:
+    view_df = final_base_data_draft_flag[final_base_data_draft_flag["pick_no"].isna()].copy()
+else:
+    view_df = final_base_data_draft_flag.copy()
 
-    # ADP filter
-    max_adp = st.slider("Max ADP to consider for scarcity (lower = earlier picks, higher = deeper pool)",
-                        min_value=1, max_value=400, value=200)
+# Layout: 2x2 tables
+positions = ["QB", "RB", "WR", "TE"]
+rows = []
+for pos in positions:
+    pos_df = view_df[view_df["position"] == pos][cols_to_show]
+    if show_drafted:
+        pos_df = pos_df.style.apply(highlight_drafted, axis=1)
+    rows.append((pos, pos_df))
 
-    filtered_available = available_df[available_df["proj_adp_half_ppr"] <= max_adp]
+# Display 2x2 grid
+row1_col1, row1_col2 = st.columns(2)
+row2_col1, row2_col2 = st.columns(2)
 
-    col1, col2 = st.columns([2, 1])  # wider for draft board
+row1_col1.write("### QB")
+row1_col1.dataframe(rows[0][1])
 
-    with col1:
-        st.markdown("### Draft Board (Live Picks)")
-        draft_view = draft_picks_live[["round", "pick_no", "draft_slot", "first_name", "last_name",
-                                       "primary_fantasy_position", "team"]].sort_values(["round", "pick_no"])
-        st.dataframe(draft_view, use_container_width=True)
+row1_col2.write("### RB")
+row1_col2.dataframe(rows[1][1])
 
-    with col2:
-        st.markdown("### Remaining Positional Depth")
-        scarcity = (
-            filtered_available.groupby("primary_fantasy_position")
-            .agg(
-                available_players=("player_id", "count"),
-                avg_proj_points=("proj_calc_pts_half_ppr", "mean")
-            )
-            .reset_index()
-            .sort_values("primary_fantasy_position")
-        )
-        st.dataframe(scarcity, use_container_width=True)
+row2_col1.write("### WR")
+row2_col1.dataframe(rows[2][1])
 
-# --- TAB 3: Roster Grid View ---
-with tab3:
-    st.subheader("🏈 League Rosters")
-
-    # all teams from draft slots
-    teams = draft_picks_live["draft_slot"].unique()
-    teams = sorted(teams)
-
-    # Create an empty grid with roster spots as rows, teams as columns
-    roster_grid = pd.DataFrame(index=roster_structure, columns=teams)
-
-    # Fill roster grid
-    for team in teams:
-        team_picks = draft_picks_live[draft_picks_live["draft_slot"] == team]\
-                        .sort_values("pick_no")  # order in which players were picked
-        for i, slot in enumerate(roster_structure):
-            if i < len(team_picks):
-                player = team_picks.iloc[i]
-                # show Player Name (Pos, Team)
-                roster_grid.loc[slot, team] = f"{player['first_name']} {player['last_name']} ({player['primary_fantasy_position']}-{player['team']})"
-            else:
-                roster_grid.loc[slot, team] = ""  # empty slot
-
-    # Display
-    st.dataframe(roster_grid, use_container_width=True)
+row2_col2.write("### TE")
+row2_col2.dataframe(rows[3][1])
