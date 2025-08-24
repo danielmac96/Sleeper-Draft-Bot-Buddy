@@ -2,7 +2,6 @@ import requests
 import pandas as pd
 import streamlit as st
 
-
 @st.cache_data
 def get_all_players():
     """Pull all active players with primary position and bye week."""
