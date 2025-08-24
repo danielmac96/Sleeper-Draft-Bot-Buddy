@@ -631,4 +631,4 @@ for pos in positions:
         y=alt.Y("Pts 25:Q", title="Projected Points 2025"),
         tooltip=["Name", "Team", adp_source, "Pts 25", "Tier"]
     )
-    st.altair_chart(chart, use_container_width
+    st.altair_chart(chart, use_container_width)
