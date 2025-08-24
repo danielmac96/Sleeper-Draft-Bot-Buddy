@@ -199,139 +199,196 @@ draft_picks_live = pull_live_draft('1232794131110055936')
 
 ### Create and Clean Final Master Table
 
-# -----------------------------
-# Utility: Column groups
-# -----------------------------
-COLUMN_GROUPS = {
-    "Projections": [
-        "proj_calc_pts_half_ppr", "proj_position_2025_rank",
-        "proj_adp_half_ppr", "proj_adp_2qb",
-        "proj_pass_yd", "proj_pass_td", "proj_pass_int",
-        "proj_rush_att", "proj_rush_yd", "proj_rush_td",
-        "proj_rec", "proj_rec_yd", "proj_rec_td",
-    ],
-    "Stats": [
-        "stats_calc_pts_half_ppr", "stats_position_2024_rank", "stats_gp",
-        "stats_pass_yd", "stats_pass_td", "stats_pass_int",
-        "stats_rush_att", "stats_rush_yd", "stats_rush_td",
-        "stats_rec_tgt", "stats_rec", "stats_rec_yd", "stats_rec_td",
-    ],
-    "Draft Info": ["round", "draft_slot", "pick_no"],
-    "All": []  # Will expand to full df
+full_player_data_test_tiers = full_player_data.copy()
+full_player_data_test_tiers["name"] = full_player_data_test_tiers["first_name"] + " " + full_player_data_test_tiers[
+    "last_name"]
+
+final_base_data = pd.merge(
+    full_player_data_test_tiers,
+    all_fantasypros_df,
+    left_on=['first_name', 'last_name', 'primary_fantasy_position'],
+    right_on=['first_name', 'last_name', 'position'],
+    how='left'
+)[[
+    'player_id', 'name', 'position', 'stats_calc_pts_half_ppr', 'proj_calc_pts_half_ppr',
+    'stats_position_2024_rank', 'proj_position_2025_rank', 'tiers', 'sos_season', 'stats_gp',
+    'proj_adp_half_ppr', 'proj_adp_2qb', 'team', 'bye_week', 'depth_chart_order', 'years_exp',
+    'stats_pass_yd', 'stats_pass_td', 'stats_pass_int',
+    'proj_pass_yd', 'proj_pass_td', 'proj_pass_int',
+    'stats_rush_att', 'stats_rush_yd', 'stats_rush_td',
+    'proj_rush_att', 'proj_rush_yd', 'proj_rush_td',
+    'stats_rec_tgt', 'stats_rec', 'stats_rec_yd', 'stats_rec_td',
+    'proj_rec', 'proj_rec_yd', 'proj_rec_td'
+]]
+
+col_rename_map = {
+    # Player Basics and Full Season Data
+    # 'player_id': 'ID',
+    'name': 'Name',
+    'position': 'Pos',
+    'stats_calc_pts_half_ppr': 'Pts 24',
+    'proj_calc_pts_half_ppr': 'Pts 25',
+
+    # Player Rankings
+    'stats_position_2024_rank': 'Rank 24',
+    'proj_position_2025_rank': 'Rank 25',
+    'tiers': 'Tier',
+    'sos_season': 'SOS',
+    'stats_gp': 'GP 24',
+
+    # Additional Player Details
+    'proj_adp_half_ppr': 'ADP HPPR',
+    'proj_adp_2qb': 'ADP 2QB',
+    'team': 'Team',
+    'bye_week': 'Bye',
+    'depth_chart_order': 'Depth',
+    'years_exp': 'Exp',
+
+    # Passing
+    'stats_pass_yd': 'Pass YD 24',
+    'stats_pass_td': 'Pass TD 24',
+    'stats_pass_int': 'Int 24',
+    'proj_pass_yd': 'Pass YD 25',
+    'proj_pass_td': 'Pass TD 25',
+    'proj_pass_int': 'Int 25',
+
+    # Rushing
+    'stats_rush_att': 'Rush Att 24',
+    'stats_rush_yd': 'Rush YD 24',
+    'stats_rush_td': 'Rush TD 24',
+    'proj_rush_att': 'Rush Att 25',
+    'proj_rush_yd': 'Rush YD 25',
+    'proj_rush_td': 'Rush TD 25',
+
+    # Receiving
+    'stats_rec_tgt': 'Tgt 24',
+    'stats_rec': 'Rec 24',
+    'stats_rec_yd': 'Rec YD 24',
+    'stats_rec_td': 'Rec TD 24',
+    'proj_rec': 'Rec 25',
+    'proj_rec_yd': 'Rec YD 25',
+    'proj_rec_td': 'Rec TD 25',
+
+    # Live Draft
+    'round': 'Draft Round',
+    'draft_slot': 'Draft Team',
+    'pick_no': 'Draft Pick #'
 }
 
-CORE_COLUMNS = ["name", "position", "team"]
+final_base_data_draft_flag = pd.merge(
+    final_base_data,
+    draft_picks_live, on='player_id', how='left').rename(columns=col_rename_map)
 
-# -----------------------------
-# Position-specific filters
-# -----------------------------
-POSITION_COLUMNS = {
-    "QB": [
-        "stats_pass_yd", "stats_pass_td", "stats_pass_int",
-        "proj_pass_yd", "proj_pass_td", "proj_pass_int",
-        "stats_rush_att", "stats_rush_yd", "stats_rush_td",
-        "proj_rush_att", "proj_rush_yd", "proj_rush_td"
-    ],
-    "RB": [
-        "stats_rush_att", "stats_rush_yd", "stats_rush_td",
-        "proj_rush_att", "proj_rush_yd", "proj_rush_td",
-        "stats_rec_tgt", "stats_rec", "stats_rec_yd", "stats_rec_td",
-        "proj_rec", "proj_rec_yd", "proj_rec_td"
-    ],
-    "WR": [
-        "stats_rec_tgt", "stats_rec", "stats_rec_yd", "stats_rec_td",
-        "proj_rec", "proj_rec_yd", "proj_rec_td"
-    ],
-    "TE": [
-        "stats_rec_tgt", "stats_rec", "stats_rec_yd", "stats_rec_td",
-        "proj_rec", "proj_rec_yd", "proj_rec_td"
-    ],
+col_types = {
+    # Decimal columns (round to 1 decimal)
+    'Pts 2024': 'float',
+    'Pts 2025': 'float',
+    'ADP HPPR': 'float',
+    'ADP 2QB': 'float',
+
+    # Integer columns
+    'Pass YD 24': 'int',
+    'Pass YD 25': 'int',
+    'Rush YD 24': 'int',
+    'Rush YD 25': 'int',
+    'Rec YD 24': 'int',
+    'Rec YD 25': 'int',
+    'Rank 2024': 'int',
+    'Rank 2025': 'int',
+    'GP 24': 'int',
+    'Tgt 24': 'int',
+    'Rec 24': 'int',
+    'Rec 25': 'int',
+    'Rush Att 24': 'int',
+    'Rush Att 25': 'int',
+    'Rush TD 24': 'int',
+    'Rush TD 25': 'int',
+    'Pass TD 24': 'int',
+    'Pass TD 25': 'int',
+    'Int 24': 'int',
+    'Int 25': 'int',
+    'Rec TD 24': 'int',
+    'Rec TD 25': 'int',
+    'Depth': 'int',
+    'Exp': 'int',
+    'Bye': 'int',
+    'Tier': 'int',
+    'SOS': 'int',
+    'Draft Round': 'int',
+    'Draft Team': 'int',
+    'Draft Pick #': 'int',
+
+    # String columns
+    'Name': 'string',
+    'Pos': 'string',
+    'Team': 'string'
 }
 
-# -----------------------------
-# Styling for drafted players
-# -----------------------------
-def highlight_drafted(row):
-    if "pick_no" in row and pd.notna(row["pick_no"]):
-        return ["color: lightgrey; text-decoration: line-through" for _ in row]
-    return ["" for _ in row]
+for col, typ in col_types.items():
+    if col in final_base_data_draft_flag.columns:
+        if typ == 'int':
+            final_base_data_draft_flag[col] = final_base_data_draft_flag[col].fillna(0).astype(int)
+        elif typ == 'float':
+            final_base_data_draft_flag[col] = final_base_data_draft_flag[col].astype(float).round(1)
+        elif typ == 'string':
+            final_base_data_draft_flag[col] = final_base_data_draft_flag[col].astype(str)
 
-# -----------------------------
-# Main App
-# -----------------------------
-st.set_page_config(layout="wide")
-st.title("Fantasy Draft Dashboard")
 
-# Controls
-col1, col2, col3 = st.columns([1, 1, 1])
-with col1:
-    refresh_clicked = st.button("🔄 Refresh Data")
-with col2:
-    column_group = st.radio("Select column group:", list(COLUMN_GROUPS.keys()))
-with col3:
-    show_drafted = st.checkbox("Show Drafted", value=False)
+import streamlit as st
+import pandas as pd
 
-# Load live data if refreshed
-if refresh_clicked:
-    draft_picks_live = load_draft_picks_live()
-    final_base_data_draft_flag.update(draft_picks_live.set_index("player_id"))
+# Assume final_base_data_draft_flag is already available in memory as a DataFrame
+# Columns available: ['Name','Pos','Team','Proj Pts 25','ADP HPPR','Tier','Bye','Draft Team']
 
-# Filter columns by group
-if column_group == "All":
-    cols_to_show_base = final_base_data_draft_flag.columns.tolist()
-else:
-    cols_to_show_base = CORE_COLUMNS + COLUMN_GROUPS[column_group]
-    cols_to_show_base = [c for c in cols_to_show_base if c in final_base_data_draft_flag.columns]
+# --- Sidebar Controls ---
+st.sidebar.header("Draft Board Settings")
+show_drafted = st.sidebar.checkbox("Show Drafted Players", value=False)
+sort_option = st.sidebar.selectbox("Sort Players By", ["ADP HPPR", "Pts 25"])
 
-# Apply drafted toggle
-if not show_drafted:
-    view_df = final_base_data_draft_flag[final_base_data_draft_flag["pick_no"].isna()].copy()
-else:
-    view_df = final_base_data_draft_flag.copy()
+# --- Helper function to render player card ---
+def player_card(row):
+    drafted = pd.notna(row.get("Draft Team", None))
+    card_color = "#f0f0f0" if drafted else "white"
+    border_color = {
+        "QB": "#4a90e2",  # blue
+        "RB": "#50e3c2",  # green
+        "WR": "#e94e77",  # red
+        "TE": "#f5a623",  # orange
+    }.get(row["Pos"], "#cccccc")
 
-# Layout: 2x2 tables
+    return f"""
+    <div style='border: 2px solid {border_color}; border-radius: 8px; padding: 6px; margin: 4px;
+                background-color:{card_color}; opacity:{'0.4' if drafted else '1'};'>
+        <b>{row['Name']}</b> ({row['Team']})<br>
+        <span style='font-size:12px;'>Pts: {row['Pts 25']} | ADP: {row['ADP HPPR']} | Bye: {row['Bye']}</span>
+    </div>
+    """
+
+# --- Main Tier Board ---
+st.title("🏈 Fantasy Draft War Room")
+st.subheader("Visual Tier Board — All Positions")
+
 positions = ["QB", "RB", "WR", "TE"]
-rows = []
-for pos in positions:
-    # Add position-specific cols if relevant to chosen group
-    pos_specific = POSITION_COLUMNS[pos]
-    if column_group == "All":
-        cols_to_show = CORE_COLUMNS + pos_specific + COLUMN_GROUPS["Draft Info"] + [
-            c for c in COLUMN_GROUPS["Stats"] + COLUMN_GROUPS["Projections"] if c not in pos_specific
-        ]
-    else:
-        cols_to_show = CORE_COLUMNS + [
-          c for c in cols_to_show_base
-          if c in pos_specific or c in COLUMN_GROUPS["Draft Info"]
-      ]
+cols = st.columns(len(positions))
 
-    pos_df = view_df[view_df["position"] == pos][cols_to_show].copy()
+for i, pos in enumerate(positions):
+    with cols[i]:
+        st.markdown(f"### {pos}")
 
-    # Format numeric columns to 1 decimal
-    for c in pos_df.select_dtypes(include=["float", "int"]).columns:
-        if any(x in c for x in ["proj", "stats_calc", "adp"]):
-            pos_df[c] = pos_df[c].astype(float).round(1)
+        pos_data = final_base_data_draft_flag[final_base_data_draft_flag["Pos"] == pos]
+
+        # Filter drafted players if toggle is off
+        if not show_drafted:
+            pos_data = pos_data[pos_data["Draft Team"].isna()]
+
+        # Sort by selected option
+        if sort_option == "ADP HPPR":
+            pos_data = pos_data.sort_values("ADP HPPR")
         else:
-          pos_df[c] = pos_df[c].fillna(0).astype(int)
+            pos_data = pos_data.sort_values("Pts 25", ascending=False)
 
-    # Apply drafted highlighting
-    if show_drafted:
-        pos_df = pos_df.style.apply(highlight_drafted, axis=1)
-
-    rows.append((pos, pos_df))
-
-# Display 2x2 grid
-row1_col1, row1_col2 = st.columns(2)
-row2_col1, row2_col2 = st.columns(2)
-
-row1_col1.write("### QB")
-row1_col1.dataframe(rows[0][1], use_container_width=True, hide_index=True)
-
-row1_col2.write("### RB")
-row1_col2.dataframe(rows[1][1], use_container_width=True, hide_index=True)
-
-row2_col1.write("### WR")
-row2_col1.dataframe(rows[2][1], use_container_width=True, hide_index=True)
-
-row2_col2.write("### TE")
-row2_col2.dataframe(rows[3][1], use_container_width=True, hide_index=True)
+        # Group by Tier
+        for tier, tier_df in pos_data.groupby("Tier"):
+            st.markdown(f"**Tier {tier}**")
+            cards_html = "".join([player_card(r) for _, r in tier_df.iterrows()])
+            st.markdown(cards_html, unsafe_allow_html=True)
