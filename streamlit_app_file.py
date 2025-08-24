@@ -111,10 +111,120 @@ def build_full_player_df(player_info, season_stats, season_projections):
 
     return df
 
+def pull_live_draft(draft_id: str, full_player_stat_proj):
+    draft_url = f"https://api.sleeper.app/v1/draft/{draft_id}/picks"
+    draft_picks_response = requests.get(draft_url).json()
+    draft_picks_df = pd.json_normalize(draft_picks_response)
+    draft_picks_df.columns = [col.replace("metadata.", "") for col in draft_picks_df.columns]
+    draft_picks_df = draft_picks_df.loc[:, ~draft_picks_df.columns.duplicated()]
 
-st.title("Fantasy Football Projections")
+    draft_pick_selected_columns = ['round', 'draft_slot', 'pick_no', 'player_id']
+    draft_picks_df_clean = draft_picks_df[draft_pick_selected_columns]
+    draft_picks_live = pd.merge(draft_picks_df_clean, full_player_stat_proj, on='player_id', how='left')
+
+    return draft_picks_live
+
+# All Necessary Data for Dashboard
 player_info = get_all_players()
 season_stats = get_season_stats(2024)
 season_projections = get_season_projections(2025)
 full_player_data = build_full_player_df(player_info, season_stats, season_projections)
-full_player_data
+draft_picks_live = pull_live_draft('1232794131110055936', full_player_data)
+
+# STREAMLIT APP DEVELOPMENT
+
+import streamlit as st
+import pandas as pd
+
+# Assume you already have these DataFrames
+# full_player_data = ...
+# draft_picks_live = ...
+
+# ---------- Data Prep ----------
+df = full_player_data.copy()
+df["name"] = df["first_name"] + " " + df["last_name"]
+
+# Split available players by position (exclude drafted)
+drafted_ids = set(draft_picks_live["player_id"])
+available_df = df[~df["player_id"].isin(drafted_ids)]
+
+# Helper function: subset columns
+def get_position_df(df, pos):
+    if pos == "QB":
+        cols = ["name", "team", "bye_week", "proj_adp_half_ppr",
+                "proj_overall_2025_rank", "proj_position_2025_rank",
+                "stats_pass_yd", "stats_pass_td", "stats_pass_int",
+                "proj_pass_yd", "proj_pass_td", "proj_pass_int"]
+    elif pos == "RB":
+        cols = ["name", "team", "bye_week", "proj_adp_half_ppr",
+                "proj_overall_2025_rank", "proj_position_2025_rank",
+                "stats_rush_att", "stats_rush_yd", "stats_rush_td",
+                "stats_rec", "stats_rec_yd",
+                "proj_rush_att", "proj_rush_yd", "proj_rush_td",
+                "proj_rec", "proj_rec_yd"]
+    elif pos in ["WR", "TE"]:
+        cols = ["name", "team", "bye_week", "proj_adp_half_ppr",
+                "proj_overall_2025_rank", "proj_position_2025_rank",
+                "stats_rec", "stats_rec_tgt", "stats_rec_yd", "stats_rec_td",
+                "proj_rec", "proj_rec_yd", "proj_rec_td"]
+    else:
+        cols = ["name", "team", "proj_overall_2025_rank"]
+    return df[df["primary_fantasy_position"] == pos][cols].sort_values("proj_overall_2025_rank")
+
+# ---------- Streamlit UI ----------
+st.set_page_config(layout="wide")
+st.title("🏈 Fantasy Draft Dashboard")
+
+tab1, tab2, tab3, tab4 = st.tabs(["📊 Player Pool", "📋 Draft Board", "📉 Positional Scarcity", "🏈 My Roster"])
+
+# --- TAB 1: Player Pool ---
+with tab1:
+    st.subheader("Available Players by Position")
+    col1, col2, col3, col4 = st.columns(4)
+
+    with col1:
+        st.markdown("#### Quarterbacks")
+        st.dataframe(get_position_df(available_df, "QB").head(20))
+
+    with col2:
+        st.markdown("#### Running Backs")
+        st.dataframe(get_position_df(available_df, "RB").head(20))
+
+    with col3:
+        st.markdown("#### Wide Receivers")
+        st.dataframe(get_position_df(available_df, "WR").head(20))
+
+    with col4:
+        st.markdown("#### Tight Ends")
+        st.dataframe(get_position_df(available_df, "TE").head(20))
+
+# --- TAB 2: Draft Board ---
+with tab2:
+    st.subheader("Live Draft Picks")
+    st.dataframe(
+        draft_picks_live[["round", "pick_no", "draft_slot", "first_name", "last_name", "primary_fantasy_position", "team"]]
+        .sort_values(["round", "pick_no"])
+    )
+
+# --- TAB 3: Positional Scarcity ---
+with tab3:
+    st.subheader("Remaining Positional Depth")
+    scarcity = (
+        available_df.groupby("primary_fantasy_position")
+        .agg(
+            available_players=("player_id", "count"),
+            avg_proj_points=("proj_calc_pts_half_ppr", "mean")
+        )
+        .reset_index()
+    )
+    st.dataframe(scarcity)
+
+# --- TAB 4: My Roster ---
+with tab4:
+    st.subheader("My Drafted Players")
+    my_team_id = st.text_input("Enter your Draft Slot ID", "1")
+    my_players = draft_picks_live[draft_picks_live["draft_slot"] == int(my_team_id)]
+    st.dataframe(
+        my_players[["round", "pick_no", "first_name", "last_name", "primary_fantasy_position", "proj_calc_pts_half_ppr"]]
+        .sort_values("round")
+    )
