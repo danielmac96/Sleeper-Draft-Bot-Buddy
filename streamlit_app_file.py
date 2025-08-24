@@ -199,38 +199,6 @@ draft_picks_live = pull_live_draft('1232794131110055936')
 
 ### Create and Clean Final Master Table
 
-full_player_data_test_tiers = full_player_data.copy()
-full_player_data_test_tiers["name"] = full_player_data_test_tiers["first_name"] + " " + full_player_data_test_tiers[
-    "last_name"]
-
-final_base_data = pd.merge(
-    full_player_data_test_tiers,
-    all_fantasypros_df,
-    left_on=['first_name', 'last_name', 'primary_fantasy_position'],
-    right_on=['first_name', 'last_name', 'position'],
-    how='left'
-)[[
-    # Player Basics and Full Season Data
-    'player_id', 'name', 'position', 'stats_calc_pts_half_ppr', 'proj_calc_pts_half_ppr',
-    # Player Rankings
-    'stats_position_2024_rank', 'proj_position_2025_rank', 'tiers', 'sos_season', 'stats_gp',
-    # Additional Player Details
-    'proj_adp_half_ppr', 'proj_adp_2qb', 'team', 'bye_week', 'depth_chart_order', 'years_exp',
-    # Passing
-    'stats_pass_yd', 'stats_pass_td', 'stats_pass_int',
-    'proj_pass_yd', 'proj_pass_td', 'proj_pass_int',
-    # Rushing
-    'stats_rush_att', 'stats_rush_yd', 'stats_rush_td',
-    'proj_rush_att', 'proj_rush_yd', 'proj_rush_td',
-    # Receiving
-    'stats_rec_tgt', 'stats_rec', 'stats_rec_yd', 'stats_rec_td',
-    'proj_rec', 'proj_rec_yd', 'proj_rec_td'
-]]
-
-final_base_data_draft_flag = pd.merge(
-    final_base_data,
-    draft_picks_live, on='player_id', how='left')
-
 # -----------------------------
 # Utility: Column groups
 # -----------------------------
@@ -252,19 +220,46 @@ COLUMN_GROUPS = {
     "All": []  # Will expand to full df
 }
 
-CORE_COLUMNS = ["player_id", "name", "position", "team"]
+CORE_COLUMNS = ["name", "position", "team"]
+
+# -----------------------------
+# Position-specific filters
+# -----------------------------
+POSITION_COLUMNS = {
+    "QB": [
+        "stats_pass_yd", "stats_pass_td", "stats_pass_int",
+        "proj_pass_yd", "proj_pass_td", "proj_pass_int",
+        "stats_rush_att", "stats_rush_yd", "stats_rush_td",
+        "proj_rush_att", "proj_rush_yd", "proj_rush_td"
+    ],
+    "RB": [
+        "stats_rush_att", "stats_rush_yd", "stats_rush_td",
+        "proj_rush_att", "proj_rush_yd", "proj_rush_td",
+        "stats_rec_tgt", "stats_rec", "stats_rec_yd", "stats_rec_td",
+        "proj_rec", "proj_rec_yd", "proj_rec_td"
+    ],
+    "WR": [
+        "stats_rec_tgt", "stats_rec", "stats_rec_yd", "stats_rec_td",
+        "proj_rec", "proj_rec_yd", "proj_rec_td"
+    ],
+    "TE": [
+        "stats_rec_tgt", "stats_rec", "stats_rec_yd", "stats_rec_td",
+        "proj_rec", "proj_rec_yd", "proj_rec_td"
+    ],
+}
 
 # -----------------------------
 # Styling for drafted players
 # -----------------------------
 def highlight_drafted(row):
-    if pd.notna(row.get("pick_no")):
-        return ["color: red; text-decoration: line-through" for _ in row]
+    if "pick_no" in row and pd.notna(row["pick_no"]):
+        return ["color: lightgrey; text-decoration: line-through" for _ in row]
     return ["" for _ in row]
 
 # -----------------------------
 # Main App
 # -----------------------------
+st.set_page_config(layout="wide")
 st.title("Fantasy Draft Dashboard")
 
 # Controls
@@ -281,12 +276,12 @@ if refresh_clicked:
     draft_picks_live = load_draft_picks_live()
     final_base_data_draft_flag.update(draft_picks_live.set_index("player_id"))
 
-# Filter columns
+# Filter columns by group
 if column_group == "All":
-    cols_to_show = final_base_data_draft_flag.columns.tolist()
+    cols_to_show_base = final_base_data_draft_flag.columns.tolist()
 else:
-    cols_to_show = CORE_COLUMNS + COLUMN_GROUPS[column_group]
-    cols_to_show = [c for c in cols_to_show if c in final_base_data_draft_flag.columns]
+    cols_to_show_base = CORE_COLUMNS + COLUMN_GROUPS[column_group]
+    cols_to_show_base = [c for c in cols_to_show_base if c in final_base_data_draft_flag.columns]
 
 # Apply drafted toggle
 if not show_drafted:
@@ -298,9 +293,31 @@ else:
 positions = ["QB", "RB", "WR", "TE"]
 rows = []
 for pos in positions:
-    pos_df = view_df[view_df["position"] == pos][cols_to_show]
+    # Add position-specific cols if relevant to chosen group
+    pos_specific = POSITION_COLUMNS[pos]
+    if column_group == "All":
+        cols_to_show = CORE_COLUMNS + pos_specific + COLUMN_GROUPS["Draft Info"] + [
+            c for c in COLUMN_GROUPS["Stats"] + COLUMN_GROUPS["Projections"] if c not in pos_specific
+        ]
+    else:
+        cols_to_show = CORE_COLUMNS + [
+          c for c in cols_to_show_base
+          if c in pos_specific or c in COLUMN_GROUPS["Draft Info"]
+      ]
+
+    pos_df = view_df[view_df["position"] == pos][cols_to_show].copy()
+
+    # Format numeric columns to 1 decimal
+    for c in pos_df.select_dtypes(include=["float", "int"]).columns:
+        if any(x in c for x in ["proj", "stats_calc", "adp"]):
+            pos_df[c] = pos_df[c].astype(float).round(1)
+        else:
+          pos_df[c] = pos_df[c].fillna(0).astype(int)
+
+    # Apply drafted highlighting
     if show_drafted:
         pos_df = pos_df.style.apply(highlight_drafted, axis=1)
+
     rows.append((pos, pos_df))
 
 # Display 2x2 grid
@@ -308,13 +325,13 @@ row1_col1, row1_col2 = st.columns(2)
 row2_col1, row2_col2 = st.columns(2)
 
 row1_col1.write("### QB")
-row1_col1.dataframe(rows[0][1])
+row1_col1.dataframe(rows[0][1], use_container_width=True, hide_index=True)
 
 row1_col2.write("### RB")
-row1_col2.dataframe(rows[1][1])
+row1_col2.dataframe(rows[1][1], use_container_width=True, hide_index=True)
 
 row2_col1.write("### WR")
-row2_col1.dataframe(rows[2][1])
+row2_col1.dataframe(rows[2][1], use_container_width=True, hide_index=True)
 
 row2_col2.write("### TE")
-row2_col2.dataframe(rows[3][1])
+row2_col2.dataframe(rows[3][1], use_container_width=True, hide_index=True)
