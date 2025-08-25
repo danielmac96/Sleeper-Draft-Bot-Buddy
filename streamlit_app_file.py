@@ -470,18 +470,16 @@ drafted = final_base_data_draft_flag.dropna(subset=["Draft Team"]).copy()
 if drafted.empty:
     st.info("Once draft picks populate, this section will show opponent needs and trends.")
 else:
-    team_pos_counts = drafted.groupby(["Draft Team", "Pos"]).size().unstack(fill_value=np.nan)
-    for p in positions:
-        if p not in team_pos_counts.columns:
-            team_pos_counts[p] = np.nan
+    positions = ["QB", "RB", "WR", "TE"]
 
-    st.markdown("**Team Positional Counts (colored by more/less)**")
-    drafted = final_base_data_draft_flag.dropna(subset=["Draft Team"]).copy()
-    team_pos_counts = drafted.groupby(["Draft Team", "Pos"]).size().unstack(fill_value=0)
-    for p in ["QB", "RB", "WR", "TE"]:
-        if p not in team_pos_counts.columns:
-            team_pos_counts[p] = 0
-    styled_counts = team_pos_counts.style.background_gradient(cmap='RdYlGn', axis=0)
+    # Compute positional counts with positions as rows, teams as columns
+    team_pos_counts = drafted.groupby(["Pos", "Draft Team"]).size().unstack(fill_value=0)
+    for team in team_pos_counts.columns:
+        team_pos_counts[team] = team_pos_counts[team].fillna(0)
+
+    st.markdown("**Team Positional Counts (Positions as rows, Teams as columns, colored by row)**")
+    # Apply row-wise color gradient
+    styled_counts = team_pos_counts.style.background_gradient(cmap='RdYlGn', axis=1)
     st.dataframe(styled_counts)
 
     st.markdown("**ADP vs Draft Trends**")
