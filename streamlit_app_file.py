@@ -422,6 +422,9 @@ colA.metric("Picks Made #", current_pick)
 colB.metric("Your Next Pick #", next_pick if next_pick else "—")
 colC.metric("Picks Until You", picks_until)
 
+drafted = final_base_data_draft_flag.dropna(subset=["Draft Team"]).copy()
+team_pos_counts = drafted.groupby(["Pos", "Draft Team"]).size().unstack(fill_value=0)
+
 full_draft_order = []
 for rnd in range(1, total_rounds + 1):
     if snake and (rnd % 2 == 0):
@@ -440,37 +443,33 @@ if next_pick is not None:
     teams_in_window_counts = picks_in_window['Draft_Slot'].value_counts().reset_index()
     teams_in_window_counts.columns = ['Draft_Slot', 'Picks_in_Window']
 
-    if 'team_pos_counts' in locals():
-        teams_below_qb_threshold = team_pos_counts.loc['QB'] < 2
-        teams_needing_qb = team_pos_counts.columns[teams_below_qb_threshold].tolist()
-        needy_qb_teams_in_window = teams_in_window_counts[teams_in_window_counts['Draft_Slot'].isin(teams_needing_qb)]
-        potential_qb_picks_ahead_of_next_pick = needy_qb_teams_in_window['Picks_in_Window'].sum()
+    teams_below_qb_threshold = team_pos_counts.loc['QB'] < 2
+    teams_needing_qb = team_pos_counts.columns[teams_below_qb_threshold].tolist()
+    needy_qb_teams_in_window = teams_in_window_counts[teams_in_window_counts['Draft_Slot'].isin(teams_needing_qb)]
+    potential_qb_picks_ahead_of_next_pick = needy_qb_teams_in_window['Picks_in_Window'].sum()
 
-        teams_below_rb_threshold = team_pos_counts.loc['RB'] < 3
-        teams_needing_rb = team_pos_counts.columns[teams_below_rb_threshold].tolist()
-        needy_rb_teams_in_window = teams_in_window_counts[teams_in_window_counts['Draft_Slot'].isin(teams_needing_rb)]
-        potential_rb_picks_ahead_of_next_pick = needy_rb_teams_in_window['Picks_in_Window'].sum()
+    teams_below_rb_threshold = team_pos_counts.loc['RB'] < 3
+    teams_needing_rb = team_pos_counts.columns[teams_below_rb_threshold].tolist()
+    needy_rb_teams_in_window = teams_in_window_counts[teams_in_window_counts['Draft_Slot'].isin(teams_needing_rb)]
+    potential_rb_picks_ahead_of_next_pick = needy_rb_teams_in_window['Picks_in_Window'].sum()
 
-        teams_below_wr_threshold = team_pos_counts.loc['WR'] < 3
-        teams_needing_wr = team_pos_counts.columns[teams_below_wr_threshold].tolist()
-        needy_wr_teams_in_window = teams_in_window_counts[teams_in_window_counts['Draft_Slot'].isin(teams_needing_wr)]
-        potential_wr_picks_ahead_of_next_pick = needy_wr_teams_in_window['Picks_in_Window'].sum()
+    teams_below_wr_threshold = team_pos_counts.loc['WR'] < 3
+    teams_needing_wr = team_pos_counts.columns[teams_below_wr_threshold].tolist()
+    needy_wr_teams_in_window = teams_in_window_counts[teams_in_window_counts['Draft_Slot'].isin(teams_needing_wr)]
+    potential_wr_picks_ahead_of_next_pick = needy_wr_teams_in_window['Picks_in_Window'].sum()
 
-        teams_below_te_threshold = team_pos_counts.loc['TE'] < 1
-        teams_needing_te = team_pos_counts.columns[teams_below_te_threshold].tolist()
-        needy_te_teams_in_window = teams_in_window_counts[teams_in_window_counts['Draft_Slot'].isin(teams_needing_te)]
-        potential_te_picks_ahead_of_next_pick = needy_te_teams_in_window['Picks_in_Window'].sum()
-
-    else:
-        pass
+    teams_below_te_threshold = team_pos_counts.loc['TE'] < 1
+    teams_needing_te = team_pos_counts.columns[teams_below_te_threshold].tolist()
+    needy_te_teams_in_window = teams_in_window_counts[teams_in_window_counts['Draft_Slot'].isin(teams_needing_te)]
+    potential_te_picks_ahead_of_next_pick = needy_te_teams_in_window['Picks_in_Window'].sum()
 
 else:
     print("\nCannot determine picks in the window as 'next_pick' is not available.")
 
-colD.metric("Need QB", potential_qb_picks_ahead_of_next_pick)
-colE.metric("Need RB", potential_rb_picks_ahead_of_next_pick)
-colF.metric("Need WR", potential_wr_picks_ahead_of_next_pick)
-colG.metric("Need TE", potential_te_picks_ahead_of_next_pick)
+colD.metric("Need QB", potential_qb_picks_ahead_of_next_pick if potential_qb_picks_ahead_of_next_pick else 0)
+colE.metric("Need RB", potential_rb_picks_ahead_of_next_pick if potential_rb_picks_ahead_of_next_pick else 0)
+colF.metric("Need WR", potential_wr_picks_ahead_of_next_pick if potential_wr_picks_ahead_of_next_pick else 0)
+colG.metric("Need TE", potential_te_picks_ahead_of_next_pick if potential_te_picks_ahead_of_next_pick else 0)
 
 # Run detection for colD
 lastN = drafted.sort_values("Draft Pick #", ascending=False).head(14)
