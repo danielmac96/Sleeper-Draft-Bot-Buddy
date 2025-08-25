@@ -460,9 +460,9 @@ if not my_picks.empty:
                   # """, unsafe_allow_html=True)
                   st.markdown(f"""
                   <div style='border: 2px solid {position_colors.get(pos, "#cccccc")}; border-radius: 10px; padding: 8px; margin: 6px; background-color:#2f2f2f; color:#f0f0f0; display: grid; grid-template-columns: 1fr 1fr 1fr; align-items:center;'>
-                      <div style='font-weight:700'>{row['Name']}</div>
+                      <div style='font-weight:700'>{row['Name']} style='font-size:12px; text-align:center;'>{row['Team']} • Bye {row['Bye']}</div>
                       <div style='font-size:12px; text-align:center;'>{row['Team']} • Bye {row['Bye']}</div>
-                      <div style='font-size:13px; text-align:right;'>2024 Stat: <b>{stat_val} 2025 Proj: <b>{proj_val}</b></div>
+                      <div style='font-size:13px; text-align:right;'>2024 Stat: {stat_val} 2025 Proj: {proj_val}</div>
                   </div>
                   """, unsafe_allow_html=True)
           else:
