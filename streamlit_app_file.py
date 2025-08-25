@@ -584,3 +584,52 @@ else:
         chart = identity_line + vlines + points
         st.altair_chart(chart, use_container_width=True)
 
+# ==========================
+# DRAFT POOL - CARD VIEW
+# ==========================
+st.subheader("📋 Draft Pool (Card View)")
+
+# Toggle drafted players
+include_drafted = st.checkbox("Include Drafted Players (Card View)", value=False)
+pool = final_base_data_draft_flag.copy() if include_drafted else final_base_data_draft_flag[final_base_data_draft_flag["Draft Team"].isna()]
+
+# Metric options to sort by
+sort_metric = st.selectbox(
+    "Sort players by:",
+    ["Rank 24", "Pts 24", "Rank 25", "Pts 25", "ADP HPPR", "ADP 2QB", "SOS", "Tier"],
+    index=0
+)
+
+# Sort ascending/descending
+ascending = st.radio("Sort order:", ["Ascending", "Descending"], horizontal=True) == "Ascending"
+
+# Positions selector
+pos_choice = st.selectbox("Choose Position:", ["QB", "RB", "WR", "TE"])
+
+# Filter + sort
+pos_df = pool[pool["Pos"] == pos_choice].copy()
+if sort_metric in pos_df.columns:
+    pos_df = pos_df.sort_values(by=sort_metric, ascending=ascending)
+
+# Card rendering function
+def render_player_card(row):
+    card_html = f"""
+    <div style='border:2px solid #444;border-radius:12px;padding:12px;margin:8px;
+                background-color:#2f2f2f;color:#f0f0f0;box-shadow:2px 2px 6px rgba(0,0,0,0.4);'>
+        <div style='font-weight:700;font-size:15px'>{row['Name']} ({row['Pos']})</div>
+        <div style='font-size:12px;opacity:0.85;'>{row['Team']} • Bye {row['Bye']}</div>
+        <hr style="border:0.5px solid #555;margin:6px 0;" />
+        <div style='font-size:13px'>Rank 24: <b>{row.get('Rank 24','—')}</b> • Pts 24: <b>{row.get('Pts 24','—')}</b></div>
+        <div style='font-size:13px'>Rank 25: <b>{row.get('Rank 25','—')}</b> • Pts 25: <b>{row.get('Pts 25','—')}</b></div>
+        <div style='font-size:13px'>Tier: <b>{row.get('Tier','—')}</b> • SOS: <b>{row.get('SOS','—')}</b></div>
+        <div style='font-size:13px'>ADP HPPR: <b>{row.get('ADP HPPR','—')}</b> • ADP 2QB: <b>{row.get('ADP 2QB','—')}</b></div>
+        <div style='font-size:13px'>Depth: <b>{row.get('DEPTH','—')}</b> • Exp: <b>{row.get('Exp','—')}</b></div>
+    </div>
+    """
+    return card_html
+
+# Display in 4-column grid
+cols = st.columns(4)
+for i, (_, row) in enumerate(pos_df.iterrows()):
+    with cols[i % 4]:
+        st.markdown(render_player_card(row), unsafe_allow_html=True)
