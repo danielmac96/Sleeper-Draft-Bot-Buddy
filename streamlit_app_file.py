@@ -337,11 +337,12 @@ for col, typ in col_types.items():
 ##########################################################################################################################################################################################
 ##########################################################################################################################################################################################
 ##########################################################################################################################################################################################
-
 import streamlit as st
 import pandas as pd
 import numpy as np
 import altair as alt
+import matplotlib
+
 
 # ==========================
 # CONFIG & ASSUMPTIONS
@@ -359,9 +360,6 @@ league_size = st.sidebar.number_input("League Size (teams)", min_value=4, max_va
 total_rounds = st.sidebar.number_input("Total Rounds", min_value=8, max_value=24, value=15, step=1)
 your_slot = st.sidebar.number_input("Your Draft Slot", min_value=1, max_value=league_size, value=1, step=1)
 snake = st.sidebar.checkbox("Snake Draft", value=True)
-
-positions = ["QB", "RB", "WR", "TE"]
-drafted = final_base_data_draft_flag.dropna(subset=["Draft Team"]).copy()
 
 # ADP source
 adp_source = st.sidebar.selectbox("ADP Source", ["ADP HPPR", "ADP 2QB"], index=0)
@@ -406,7 +404,7 @@ def next_pick_info(df: pd.DataFrame, league_size: int, total_rounds: int, your_s
 # ==========================
 # DEDUCE YOUR TEAM FROM DRAFT SLOT
 # ==========================
-your_slot, total_rounds, snake = 14,15,True
+
 my_slot_picks = final_base_data_draft_flag[final_base_data_draft_flag["Draft Pick #"] == your_slot]
 if not my_slot_picks.empty:
     my_team = my_slot_picks.iloc[0]["Draft Team"]
@@ -444,84 +442,78 @@ my_picks = final_base_data_draft_flag[final_base_data_draft_flag["Draft Team"] =
 position_colors = {"QB": "#4a90e2", "RB": "#50e3c2", "WR": "#e94e77", "TE": "#f5a623"}
 
 if not my_picks.empty:
-    positions = ["QB", "RB", "WR", "TE"]
-    cols = st.columns(4)
-    for i, pos in enumerate(positions):
-        with cols[i]:
-            st.markdown(f"**{pos}s**")
-            df_pos = my_picks[my_picks["Pos"] == pos][["Name", "Team", "Bye", "Pts 25"]].reset_index(drop=True)
-            if not df_pos.empty:
-                for _, row in df_pos.iterrows():
-                    proj_val = round(row['Pts 25'], 1) if pd.notna(row['Pts 25']) else "-"
-                    st.markdown(f"""
-                    <div style='border: 2px solid {position_colors.get(pos, "#cccccc")}; border-radius: 10px; padding: 8px; margin: 6px; background-color:#2f2f2f; color:#f0f0f0;'>
-                        <div style='font-weight:700'>{row['Name']}</div>
-                        <div style='font-size:12px'>{row['Team']} • Bye {row['Bye']}</div>
-                        <div style='margin-top:4px; font-size:13px'>Proj: <b>{proj_val}</b></div>
-                    </div>
-                    """, unsafe_allow_html=True)
-            else:
-                st.write("—")
+  positions = ["QB", "RB", "WR", "TE"]
+  cols = st.columns(4)
+  for i, pos in enumerate(positions):
+      with cols[i]:
+          st.markdown(f"**{pos}s**")
+          df_pos = my_picks[my_picks["Pos"] == pos][["Name", "Team", "Bye", "Pts 25"]].reset_index(drop=True)
+          if not df_pos.empty:
+              for _, row in df_pos.iterrows():
+                  proj_val = round(row['Pts 25'], 1) if pd.notna(row['Pts 25']) else "-"
+                  st.markdown(f"""
+                  <div style='border: 2px solid {position_colors.get(pos, "#cccccc")}; border-radius: 10px; padding: 8px; margin: 6px; background-color:#2f2f2f; color:#f0f0f0;'>
+                      <div style='font-weight:700'>{row['Name']}</div>
+                      <div style='font-size:12px'>{row['Team']} • Bye {row['Bye']}</div>
+                      <div style='margin-top:4px; font-size:13px'>Proj: <b>{proj_val}</b></div>
+                  </div>
+                  """, unsafe_allow_html=True)
+          else:
+              st.write("—")
 else:
-    st.info("No picks yet — will populate as draft progresses.")
+  st.info("No picks yet — will populate as draft progresses.")
 
 # ==========================
 # LEAGUE-WIDE INSIGHTS
 # ==========================
 st.subheader("🌐 League-Wide Insights")
-
+drafted = final_base_data_draft_flag.dropna(subset=["Draft Team"]).copy()
 if drafted.empty:
     st.info("Once draft picks populate, this section will show opponent needs and trends.")
 else:
-    # Team positional counts with fill_value=0 for numeric gradient
-    team_pos_counts = drafted.groupby(["Draft Team", "Pos"]).size().unstack(fill_value=0)
+    team_pos_counts = drafted.groupby(["Draft Team", "Pos"]).size().unstack(fill_value=np.nan)
     for p in positions:
         if p not in team_pos_counts.columns:
+            team_pos_counts[p] = np.nan
+
+    st.markdown("**Team Positional Counts (colored by more/less)**")
+    drafted = final_base_data_draft_flag.dropna(subset=["Draft Team"]).copy()
+    team_pos_counts = drafted.groupby(["Draft Team", "Pos"]).size().unstack(fill_value=0)
+    for p in ["QB", "RB", "WR", "TE"]:
+        if p not in team_pos_counts.columns:
             team_pos_counts[p] = 0
+    styled_counts = team_pos_counts.style.background_gradient(cmap='RdYlGn', axis=0)
+    st.dataframe(styled_counts)
 
-    # st.markdown("**Team Positional Counts (colored by more/less)**")
-    # styled_counts = team_pos_counts.style.background_gradient(cmap='RdYlGn', axis=0)
-    # st.dataframe(styled_counts)
-
-    # Run detection
-    st.markdown("**Run Detection (last 14 picks)**")
-    lastN = drafted.sort_values("Draft Pick #", ascending=False).head(14)
-    run_counts = lastN["Pos"].value_counts()
-    st.write(run_counts.to_frame("Count"))
-    hot_pos = run_counts.index[0] if not run_counts.empty else None
-    if hot_pos and run_counts.iloc[0] >= 6:
-        st.warning(f"{hot_pos} run in progress: {int(run_counts.iloc[0])} selected in last 14 picks")
-
-    # ADP vs Draft Trends
     st.markdown("**ADP vs Draft Trends**")
     if {"Draft Pick #", adp_source, "Pos", "Name"}.issubset(drafted.columns):
         trend = drafted.dropna(subset=["Draft Pick #", adp_source])
         trend = trend[trend['Draft Pick #'] > 0].copy()
-        if not trend.empty:
-            trend["Draft Pick #"] = trend["Draft Pick #"].astype(int)
+        trend["Draft Pick #"] = trend["Draft Pick #"].astype(int)
 
-            base = alt.Chart(trend)
+        base = alt.Chart(trend)
+        # x=y reference line
+        identity_line = alt.Chart(
+            pd.DataFrame({'x': [0, trend['Draft Pick #'].max()], 'y': [0, trend['Draft Pick #'].max()]})).mark_line(
+            color='lightgray', strokeDash=[5, 5]).encode(
+            x='x:Q',
+            y='y:Q'
+        )
 
-            # x=y reference line
-            max_pick = trend['Draft Pick #'].max()
-            identity_line = alt.Chart(pd.DataFrame({'x': [0, max_pick], 'y': [0, max_pick]})).mark_line(color='lightgray', strokeDash=[5, 5]).encode(
-                x='x:Q',
-                y='y:Q'
-            )
+        # vertical lines from point to x=y line
+        vlines = alt.Chart(trend).mark_rule(color='lightgray', strokeWidth=1, opacity=0.5).encode(
+            x='Draft Pick #:Q',
+            y='Draft Pick #:Q',
+            y2=f'{adp_source}:Q'
+        )
 
-            # vertical lines from point to x=y line
-            vlines = alt.Chart(trend).mark_rule(color='lightgray', strokeWidth=1, opacity=0.5).encode(
-                x='Draft Pick #:Q',
-                y='Draft Pick #:Q',
-                y2=f'{adp_source}:Q'
-            )
+        points = base.mark_circle(size=70).encode(
+            x=alt.X("Draft Pick #", title="Overall Draft Pick"),
+            y=alt.Y(f"{adp_source}:Q", title=f"{adp_source}"),
+            color=alt.Color("Pos:N", scale=alt.Scale(domain=["QB", "RB", "WR", "TE"],
+                                                     range=["#4a90e2", "#50e3c2", "#e94e77", "#f5a623"])),
+            tooltip=["Name", "Team", "Pos", "Draft Pick #", adp_source]
+        ).interactive()
 
-            points = base.mark_circle(size=70).encode(
-                x=alt.X("Draft Pick #", title="Overall Draft Pick"),
-                y=alt.Y(f"{adp_source}:Q", title=f"{adp_source}"),
-                color=alt.Color("Pos:N", scale=alt.Scale(domain=positions, range=["#4a90e2", "#50e3c2", "#e94e77", "#f5a623"])),
-                tooltip=["Name", "Team", "Pos", "Draft Pick #", adp_source]
-            ).interactive()
-
-            chart = identity_line + vlines + points
-            st.altair_chart(chart, use_container_width=True)
+        chart = identity_line + vlines + points
+        st.altair_chart(chart, use_container_width=True)
