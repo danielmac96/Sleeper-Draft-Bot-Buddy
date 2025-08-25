@@ -471,15 +471,33 @@ if drafted.empty:
     st.info("Once draft picks populate, this section will show opponent needs and trends.")
 else:
     positions = ["QB", "RB", "WR", "TE"]
+    drafted = drafted[(drafted["Pos"].isin(positions)) & (drafted["Draft Team"] != 0)]
 
-    # Compute positional counts with positions as rows, teams as columns
+    # Pivot: rows = Pos, cols = Draft Team
     team_pos_counts = drafted.groupby(["Pos", "Draft Team"]).size().unstack(fill_value=0)
-    for team in team_pos_counts.columns:
-        team_pos_counts[team] = team_pos_counts[team].fillna(0)
 
-    st.markdown("**Team Positional Counts (Positions as rows, Teams as columns, colored by row)**")
-    # Apply row-wise color gradient
-    styled_counts = team_pos_counts.style.highlight_max(axis=1, color='#7CFC00').highlight_min(axis=1, color='#FF6347')
+
+    # Custom color function
+    def color_counts(val):
+        if val >= 2:
+            return 'background-color: #50e3c2; color: black; text-align: center;'  # green
+        elif val == 1:
+            return 'background-color: #f5a623; color: black; text-align: center;'  # orange
+        elif val == 0:
+            return 'background-color: #e94e77; color: black; text-align: center;'  # red
+        else:
+            return 'text-align: center;'
+
+
+    # Apply styling
+    styled_counts = (
+        team_pos_counts
+        .style
+        .applymap(color_counts)
+        .set_properties(**{'text-align': 'center'})
+    )
+
+    st.markdown("**Team Positional Counts (filtered, centered, and color-coded)**")
     st.dataframe(styled_counts)
 
     st.markdown("**ADP vs Draft Trends**")
