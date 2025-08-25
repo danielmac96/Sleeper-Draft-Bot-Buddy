@@ -342,7 +342,6 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import altair as alt
-import matplotlib
 
 # ==========================
 # CONFIG & ASSUMPTIONS
@@ -465,9 +464,9 @@ else:
             team_pos_counts[p] = np.nan
 
     # Color coding high vs low by column
-    styled_counts = team_pos_counts.style.background_gradient(cmap='RdYlGn_r', axis=0, low=0.0, high=1.0)
-    st.markdown("**Opponent Positional Counts (colored by low/high values)**")
-    st.dataframe(styled_counts)
+    # styled_counts = team_pos_counts.style.background_gradient(cmap='RdYlGn_r', axis=0, low=0.0, high=1.0)
+    # st.markdown("**Opponent Positional Counts (colored by low/high values)**")
+    # st.dataframe(styled_counts)
 
     st.markdown("**Run Detection (last 14 picks)**")
     lastN = drafted.sort_values("Draft Pick #", ascending=False).head(14)
