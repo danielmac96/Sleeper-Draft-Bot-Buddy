@@ -472,24 +472,41 @@ colA.metric("Current Pick #", current_pick)
 colB.metric("Your Next Pick #", next_pick if next_pick else "—")
 colC.metric("Picks Until You", picks_until)
 
-# Lowest Tier Remaining by Position
-lowest_tier_counts = {}
-for pos, dfp in final_base_data_draft_flag[final_base_data_draft_flag["Draft Team"].isna()].groupby("Pos"):
-    if dfp["Tier"].notna().any():
-        min_tier = dfp["Tier"].min()
-        lowest_tier_counts[pos] = int((dfp[dfp["Tier"] == min_tier]).shape[0])
-    else:
-        lowest_tier_counts[pos] = 0
-colD.write("**Lowest Tier Remaining (by Pos)**")
-colD.write(pd.DataFrame([lowest_tier_counts]))
+# ==========================
+# LOWEST TIER REMAINING BY POSITION
+# ==========================
+undrafted = final_base_data_draft_flag[final_base_data_draft_flag["Draft Team"].isna()].copy()
+tiers = sorted(undrafted["Tier"].dropna().unique())
+positions = ["QB", "RB", "WR", "TE"]
+data = []
+for tier in tiers:
+    row = {}
+    for pos in positions:
+        row[pos] = undrafted[(undrafted["Pos"] == pos) & (undrafted["Tier"] == tier)].shape[0]
+    row['Tier'] = tier
+    data.append(row)
+df_lowest_tiers = pd.DataFrame(data).set_index('Tier')
+colD.write("**Players Remaining by Tier and Position**")
+colD.dataframe(df_lowest_tiers)
 
 # ==========================
 # MY PICKS TRACKER
 # ==========================
 st.markdown("### My Picks")
 my_picks = final_base_data_draft_flag[final_base_data_draft_flag["Draft Team"] == my_team]
+
 if not my_picks.empty:
-    st.dataframe(my_picks[["Name", "Pos", "Bye", "Pts 25"]].reset_index(drop=True))
+    positions = ["QB", "RB", "WR", "TE"]
+    cols = st.columns(4)
+    for i, pos in enumerate(positions):
+        with cols[i]:
+            st.markdown(f"**{pos}s**")
+            df_pos = my_picks[my_picks["Pos"] == pos][["Name", "Team", "Bye", "Pts 25"]].reset_index(drop=True)
+            if not df_pos.empty:
+                for _, row in df_pos.iterrows():
+                    st.write(f"{row['Name']} ({row['Team']}) | Bye week {row['Bye']} | Proj: {row['Pts 25']}")
+            else:
+                st.write("—")
 else:
     st.info("No picks yet — will populate as draft progresses.")
 
@@ -505,16 +522,20 @@ need_factor = float((team_drafted_pos == 0).sum().sum()) / max(1, league_size)
 for i, pos in enumerate(positions):
     with cols[i]:
         st.markdown(f"### {pos}")
-        pos_df = final_base_data_draft_flag[final_base_data_draft_flag["Pos"] == pos].copy()
-        if not show_drafted:
-            pos_df = pos_df[pos_df["Draft Team"].isna()]
+        pos_df = final_base_data_draft_flag[(final_base_data_draft_flag["Pos"] == pos) & (final_base_data_draft_flag["Draft Team"].isna())].copy()
+        if pos_df.empty:
+            st.write("No available players")
+            continue
+        # Keep only the 3 lowest tiers
+        lowest_tiers = sorted(pos_df["Tier"].dropna().unique())[:3]
+        pos_df = pos_df[pos_df["Tier"].isin(lowest_tiers)]
         if sort_option == adp_source:
             pos_df = pos_df.sort_values(adp_source)
         else:
             pos_df = pos_df.sort_values("Pts 25", ascending=False)
         for tier, tier_df in pos_df.groupby("Tier"):
-            available_tier = tier_df[tier_df["Draft Team"].isna()]
-            st.markdown(f"**Tier {tier} — {available_tier.shape[0]} left**")
+            available_count = tier_df.shape[0]
+            st.markdown(f"**Tier {tier} — {available_count} left**")
             cards_html = []
             for _, r in tier_df.iterrows():
                 is_risky = False
@@ -525,8 +546,7 @@ for i, pos in enumerate(positions):
                 bye_val = r.get("Bye", "-")
                 team_val = r.get("Team", "-")
                 name = r.get("Name", "-")
-                drafted_flag = pd.notna(r.get("Draft Team"))
-                card_color = "#f0f0f0" if drafted_flag else "white"
+                card_color = "white"
                 border = {
                     "QB": "#4a90e2",
                     "RB": "#50e3c2",
@@ -535,7 +555,7 @@ for i, pos in enumerate(positions):
                 }.get(pos, "#cccccc")
                 risk_glow = "box-shadow: 0 0 10px 2px rgba(255,0,0,0.4);" if is_risky else ""
                 cards_html.append(f"""
-                <div style='border: 2px solid {border}; border-radius: 10px; padding: 8px; margin: 6px; {risk_glow} background-color:{card_color}; opacity:{'0.4' if drafted_flag else '1'};'>
+                <div style='border: 2px solid {border}; border-radius: 10px; padding: 8px; margin: 6px; {risk_glow} background-color:{card_color};'>
                     <div style='font-weight:700'>{name}</div>
                     <div style='font-size:12px'>{team_val} • Bye {bye_val}</div>
                     <div style='margin-top:4px; font-size:13px'>Pts 25: <b>{pts_val}</b> &nbsp; | &nbsp; ADP: <b>{adp_val}</b></div>
@@ -571,15 +591,15 @@ drafted = final_base_data_draft_flag.dropna(subset=["Draft Team"]).copy()
 if drafted.empty:
     st.info("Once draft picks populate, this section will show opponent needs and trends.")
 else:
-    team_pos_counts = drafted.groupby(["Draft Team", "Pos"]).size().unstack(fill_value=0)
+    team_pos_counts = drafted.groupby(["Draft Team", "Pos"]).size().unstack(fill_value=np.nan)
     for p in positions:
         if p not in team_pos_counts.columns:
-            team_pos_counts[p] = 0
-    need_matrix = pd.DataFrame(index=team_pos_counts.index)
-    for p in positions:
-        need_matrix[p] = (team_pos_counts[p] < {"QB": starter_qb, "RB": starter_rb, "WR": starter_wr, "TE": starter_te}[p]).astype(int)
-    st.markdown("**Opponent Starter Needs (1 = still needs starters)**")
-    st.dataframe(need_matrix)
+            team_pos_counts[p] = np.nan
+
+    # Color coding high vs low by column
+    styled_counts = team_pos_counts.style.background_gradient(cmap='RdYlGn_r', axis=0, low=0.0, high=1.0)
+    st.markdown("**Opponent Positional Counts (colored by low/high values)**")
+    st.dataframe(styled_counts)
 
     st.markdown("**Run Detection (last 12 picks)**")
     lastN = drafted.sort_values("Draft Pick #", ascending=False).head(12)
@@ -591,7 +611,8 @@ else:
 
     st.markdown("**ADP vs Draft Trends**")
     if {"Draft Pick #", adp_source, "Pos", "Name"}.issubset(drafted.columns):
-        trend = drafted.dropna(subset=["Draft Pick #", adp_source])[drafted['Draft Pick #'] > 0].copy()
+        trend = drafted.dropna(subset=["Draft Pick #", adp_source])
+        trend = trend[trend['Draft Pick #'] > 0].copy()
         trend["Draft Pick #"] = trend["Draft Pick #"].astype(int)
         chart = alt.Chart(trend).mark_circle(size=70).encode(
             x=alt.X("Draft Pick #", title="Overall Draft Pick"),
@@ -607,7 +628,7 @@ else:
 st.subheader("📉 Positional Drop-Offs (ADP vs Projected Points)")
 for pos in positions:
     st.markdown(f"**{pos}**")
-    sub = final_base_data_draft_flag[final_base_data_draft_flag["Pos"] == pos].dropna(subset=[adp_source, "Pts 25"]).copy()
+    sub = final_base_data_draft_flag[(final_base_data_draft_flag["Pos"] == pos) & (final_base_data_draft_flag[adp_source] <= 400)].dropna(subset=[adp_source, "Pts 25"]).copy()
     if sub.empty:
         st.write("No data available for chart.")
         continue
