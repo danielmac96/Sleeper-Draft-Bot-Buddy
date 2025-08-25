@@ -346,9 +346,6 @@ import altair as alt
 # ==========================
 # CONFIG & ASSUMPTIONS
 # ==========================
-# Assumes a DataFrame named `final_base_data_draft_flag` is already present in memory with the
-# columns you described (stats, projections, ADP, tiers, draft metadata, etc.).
-# This app is built to be refreshed live as your draft progresses.
 
 st.set_page_config(page_title="Fantasy Draft War Room", layout="wide")
 
@@ -358,23 +355,20 @@ st.set_page_config(page_title="Fantasy Draft War Room", layout="wide")
 st.sidebar.header("⚙️ Settings")
 
 # Draft configuration
-league_size = st.sidebar.number_input("League Size (teams)", min_value=4, max_value=16, value=12, step=1)
-total_rounds = st.sidebar.number_input("Total Rounds", min_value=8, max_value=24, value=16, step=1)
-your_slot = st.sidebar.number_input("Your Draft Slot (1-based)", min_value=1, max_value=league_size, value=1, step=1)
+league_size = st.sidebar.number_input("League Size (teams)", min_value=4, max_value=16, value=14, step=1)
+total_rounds = st.sidebar.number_input("Total Rounds", min_value=8, max_value=24, value=15, step=1)
+your_slot = st.sidebar.number_input("Your Draft Slot", min_value=1, max_value=league_size, value=1, step=1)
 snake = st.sidebar.checkbox("Snake Draft", value=True)
 
 # ADP source
 adp_source = st.sidebar.selectbox("ADP Source", ["ADP HPPR", "ADP 2QB"], index=0)
 
+# Scoring Actual or Projection
+score_source = st.sidebar.selectbox("Stats or Projections", ['Pts 2024', 'Pts 2025'], index=0)
+
 # Visibility / Sorting
 show_drafted = st.sidebar.checkbox("Show Drafted Players on Board", value=False)
-sort_option = st.sidebar.selectbox("Sort Players By", [adp_source, "Pts 25"])
-
-# Best Value Weights
-st.sidebar.subheader("Best Value Weights")
-w_pts = st.sidebar.slider("Weight: Projected Points", 0.0, 2.0, 1.0, 0.1)
-w_adp = st.sidebar.slider("Weight: ADP Gap", 0.0, 2.0, 0.7, 0.1)
-w_scar = st.sidebar.slider("Weight: Positional Scarcity", 0.0, 2.0, 0.6, 0.1)
+sort_option = st.sidebar.selectbox("Sort Players By", [adp_source, score_source])
 
 # ==========================
 # HELPER FUNCTIONS
@@ -384,7 +378,6 @@ def get_current_pick(df: pd.DataFrame) -> int:
     if df["Draft Pick #"].notna().any():
         return int(df["Draft Pick #"].dropna().astype(int).max())
     return 0
-
 
 def compute_your_future_picks(league_size: int, total_rounds: int, your_slot: int, snake: bool) -> list:
     picks = []
@@ -397,7 +390,6 @@ def compute_your_future_picks(league_size: int, total_rounds: int, your_slot: in
         picks.append(overall)
     return picks
 
-
 def next_pick_info(df: pd.DataFrame, league_size: int, total_rounds: int, your_slot: int, snake: bool):
     current_pick = get_current_pick(df)
     your_picks = compute_your_future_picks(league_size, total_rounds, your_slot, snake)
@@ -408,47 +400,10 @@ def next_pick_info(df: pd.DataFrame, league_size: int, total_rounds: int, your_s
     picks_until = max(0, next_pick - current_pick - 1)
     return current_pick, next_pick, picks_until
 
-
-def compute_scarcity(df: pd.DataFrame) -> pd.Series:
-    available = df[df["Draft Team"].isna()]
-    if available.empty:
-        return pd.Series(dtype=float)
-    total_by_pos = df.groupby("Pos").size()
-    rem_by_pos = available.groupby("Pos").size()
-    scarcity = (rem_by_pos / total_by_pos).reindex(total_by_pos.index).fillna(0.0)
-    return scarcity
-
-
-def best_value_scores(df: pd.DataFrame, next_pick: int, weights: tuple[float, float, float]) -> pd.DataFrame:
-    w_pts, w_adp, w_scar = weights
-    data = df.copy()
-    data = data[data["Draft Team"].isna()].copy()
-    if data.empty:
-        return data
-
-    data["pts_z"] = data.groupby("Pos")["Pts 25"].transform(lambda s: (s - s.mean()) / (s.std(ddof=0) + 1e-9))
-    adp = data[adp_source].astype(float)
-    data["adp_gap"] = (adp - next_pick) * -1
-    data["adp_gap_z"] = (data["adp_gap"] - data["adp_gap"].mean()) / (data["adp_gap"].std(ddof=0) + 1e-9)
-    scarcity = compute_scarcity(df)
-    data["scarcity_pos"] = data["Pos"].map(lambda p: 1.0 - float(scarcity.get(p, 0.0)))
-    data["scarcity_z"] = (data["scarcity_pos"] - data["scarcity_pos"].mean()) / (data["scarcity_pos"].std(ddof=0) + 1e-9)
-    data["bv_score"] = w_pts * data["pts_z"] + w_adp * data["adp_gap_z"] + w_scar * data["scarcity_z"]
-    return data
-
-
-def likely_gone_flag(row: pd.Series, next_pick: int, teams_need_factor: float) -> bool:
-    try:
-        adp_val = float(row.get(adp_source, np.nan))
-    except Exception:
-        return False
-    if np.isnan(adp_val) or next_pick is None:
-        return False
-    return adp_val <= (next_pick + max(0, int(2 * teams_need_factor)))
-
 # ==========================
 # DEDUCE YOUR TEAM FROM DRAFT SLOT
 # ==========================
+your_slot, total_rounds, snake = 14,15,True
 my_slot_picks = final_base_data_draft_flag[final_base_data_draft_flag["Draft Pick #"] == your_slot]
 if not my_slot_picks.empty:
     my_team = my_slot_picks.iloc[0]["Draft Team"]
@@ -461,26 +416,9 @@ else:
 current_pick, next_pick, picks_until = next_pick_info(final_base_data_draft_flag, league_size, total_rounds, your_slot, snake)
 
 colA, colB, colC, colD = st.columns(4)
-colA.metric("Current Pick #", current_pick)
+colA.metric("Picks Made #", current_pick)
 colB.metric("Your Next Pick #", next_pick if next_pick else "—")
 colC.metric("Picks Until You", picks_until)
-
-# ==========================
-# LOWEST TIER REMAINING BY POSITION
-# ==========================
-undrafted = final_base_data_draft_flag[final_base_data_draft_flag["Draft Pick #"] == 0].copy()
-tiers = sorted(undrafted["Tier"].dropna().unique())
-positions = ["QB", "RB", "WR", "TE"]
-data = []
-for tier in tiers:
-    row = {}
-    for pos in positions:
-        row[pos] = undrafted[(undrafted["Pos"] == pos) & (undrafted["Tier"] == tier)].shape[0]
-    row['Tier'] = tier
-    data.append(row)
-df_lowest_tiers = pd.DataFrame(data).set_index('Tier')
-colD.write("**Players Remaining by Tier and Position**")
-colD.dataframe(df_lowest_tiers)
 
 # ==========================
 # MY PICKS TRACKER
@@ -497,84 +435,17 @@ if not my_picks.empty:
             df_pos = my_picks[my_picks["Pos"] == pos][["Name", "Team", "Bye", "Pts 25"]].reset_index(drop=True)
             if not df_pos.empty:
                 for _, row in df_pos.iterrows():
-                    st.write(f"{row['Name']} ({row['Team']}) | Bye week {row['Bye']} | Proj: {row['Pts 25']}")
+                    st.markdown(f"""
+                    <div style='border: 2px solid #cccccc; border-radius: 10px; padding: 8px; margin: 6px; background-color:white;'>
+                        <div style='font-weight:700'>{row['Name']}</div>
+                        <div style='font-size:12px'>{row['Team']} • Bye {row['Bye']}</div>
+                        <div style='margin-top:4px; font-size:13px'>Proj: <b>{row['Pts 25']}</b></div>
+                    </div>
+                    """, unsafe_allow_html=True)
             else:
                 st.write("—")
 else:
     st.info("No picks yet — will populate as draft progresses.")
-
-# ==========================
-# VISUAL TIER BOARD & BEST VALUE
-# ==========================
-st.subheader("Visual Tier Board — All Positions")
-positions = ["QB", "RB", "WR", "TE"]
-cols = st.columns(len(positions))
-team_drafted_pos = final_base_data_draft_flag.dropna(subset=["Draft Team"]).groupby(["Draft Team", "Pos"]).size().unstack(fill_value=0)
-need_factor = float((team_drafted_pos == 0).sum().sum()) / max(1, league_size)
-
-for i, pos in enumerate(positions):
-    with cols[i]:
-        st.markdown(f"### {pos}")
-        pos_df = final_base_data_draft_flag[(final_base_data_draft_flag["Pos"] == pos) & (final_base_data_draft_flag["Draft Team"].isna())].copy()
-        if pos_df.empty:
-            st.write("No available players")
-            continue
-        # Keep only the 3 lowest tiers
-        lowest_tiers = sorted(pos_df["Tier"].dropna().unique())[:3]
-        pos_df = pos_df[pos_df["Tier"].isin(lowest_tiers)]
-        if sort_option == adp_source:
-            pos_df = pos_df.sort_values(adp_source)
-        else:
-            pos_df = pos_df.sort_values("Pts 25", ascending=False)
-        for tier, tier_df in pos_df.groupby("Tier"):
-            available_count = tier_df.shape[0]
-            st.markdown(f"**Tier {tier} — {available_count} left**")
-            cards_html = []
-            for _, r in tier_df.iterrows():
-                is_risky = False
-                if next_pick is not None:
-                    is_risky = likely_gone_flag(r, next_pick, need_factor)
-                adp_val = r.get(adp_source, np.nan)
-                pts_val = r.get("Pts 25", np.nan)
-                bye_val = r.get("Bye", "-")
-                team_val = r.get("Team", "-")
-                name = r.get("Name", "-")
-                card_color = "white"
-                border = {
-                    "QB": "#4a90e2",
-                    "RB": "#50e3c2",
-                    "WR": "#e94e77",
-                    "TE": "#f5a623",
-                }.get(pos, "#cccccc")
-                risk_glow = "box-shadow: 0 0 10px 2px rgba(255,0,0,0.4);" if is_risky else ""
-                cards_html.append(f"""
-                <div style='border: 2px solid {border}; border-radius: 10px; padding: 8px; margin: 6px; {risk_glow} background-color:{card_color};'>
-                    <div style='font-weight:700'>{name}</div>
-                    <div style='font-size:12px'>{team_val} • Bye {bye_val}</div>
-                    <div style='margin-top:4px; font-size:13px'>Pts 25: <b>{pts_val}</b> &nbsp; | &nbsp; ADP: <b>{adp_val}</b></div>
-                </div>
-                """)
-            st.markdown("".join(cards_html), unsafe_allow_html=True)
-
-# Compute Best Value
-st.subheader("🎯 Best Value Recommendations")
-bv = best_value_scores(final_base_data_draft_flag, next_pick if next_pick else 9999, (w_pts, w_adp, w_scar))
-priority_pos = None
-if not bv.empty:
-    top_by_pos = bv.sort_values("bv_score", ascending=False).groupby("Pos").head(1).set_index("Pos")
-    if not top_by_pos.empty:
-        priority_pos = top_by_pos["bv_score"].idxmax()
-st.write(f"**Position Priority Now:** {priority_pos if priority_pos else 'N/A'}")
-
-for pos in positions:
-    st.markdown(f"**Top 5 {pos}s**")
-    sub = bv[bv["Pos"] == pos].copy()
-    if sub.empty:
-        st.write("(No players available)")
-        continue
-    sub["ADP Gap vs Next Pick"] = (sub[adp_source].astype(float) - (next_pick if next_pick else np.nan))
-    cols_show = ["Name", "Team", "Pts 25", adp_source, "Tier", "ADP Gap vs Next Pick", "bv_score"]
-    st.dataframe(sub.sort_values("bv_score", ascending=False)[cols_show].head(5).reset_index(drop=True))
 
 # ==========================
 # LEAGUE-WIDE INSIGHTS
@@ -594,13 +465,13 @@ else:
     st.markdown("**Opponent Positional Counts (colored by low/high values)**")
     st.dataframe(styled_counts)
 
-    st.markdown("**Run Detection (last 12 picks)**")
-    lastN = drafted.sort_values("Draft Pick #", ascending=False).head(12)
+    st.markdown("**Run Detection (last 14 picks)**")
+    lastN = drafted.sort_values("Draft Pick #", ascending=False).head(14)
     run_counts = lastN["Pos"].value_counts()
     st.write(run_counts.to_frame("Count"))
     hot_pos = run_counts.index[0] if not run_counts.empty else None
     if hot_pos and run_counts.iloc[0] >= 6:
-        st.warning(f"{hot_pos} run in progress: {int(run_counts.iloc[0])} selected in last 12 picks")
+        st.warning(f"{hot_pos} run in progress: {int(run_counts.iloc[0])} selected in last 14 picks")
 
     st.markdown("**ADP vs Draft Trends**")
     if {"Draft Pick #", adp_source, "Pos", "Name"}.issubset(drafted.columns):
@@ -614,20 +485,3 @@ else:
             tooltip=["Name", "Team", "Pos", "Draft Pick #", adp_source]
         ).interactive()
         st.altair_chart(chart, use_container_width=True)
-
-# ==========================
-# ADVANCED ANALYTICS — POSITIONAL DROP-OFFS
-# ==========================
-st.subheader("📉 Positional Drop-Offs (ADP vs Projected Points)")
-for pos in positions:
-    st.markdown(f"**{pos}**")
-    sub = final_base_data_draft_flag[(final_base_data_draft_flag["Pos"] == pos) & (final_base_data_draft_flag[adp_source] <= 400)].dropna(subset=[adp_source, "Pts 25"]).copy()
-    if sub.empty:
-        st.write("No data available for chart.")
-        continue
-    chart = alt.Chart(sub).mark_line(point=True).encode(
-        x=alt.X(f"{adp_source}:Q", title=f"{adp_source} (lower = earlier)"),
-        y=alt.Y("Pts 25:Q", title="Projected Points 2025"),
-        tooltip=["Name", "Team", adp_source, "Pts 25", "Tier"]
-    )
-    st.altair_chart(chart, use_container_width=True)
