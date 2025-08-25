@@ -585,7 +585,8 @@ else:
         st.altair_chart(chart, use_container_width=True)
     else:
         pass
-    st.text("DEBUG: end-league wide")
+
+st.text("DEBUG: end-league wide")
 st.text("DEBUG: post-league wide")
 # ==========================
 # DRAFT POOL - CARD VIEW
