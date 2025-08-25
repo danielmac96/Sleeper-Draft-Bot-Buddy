@@ -494,21 +494,6 @@ else:
     st.info("No picks yet — will populate as draft progresses.")
 
 # ==========================
-# BYE WEEK OVERLAPS
-# ==========================
-st.markdown("### 🧭 My Team Snapshot — Bye Week Overlaps")
-if my_picks.empty or my_picks["Bye"].isna().all():
-    st.write("(Will populate as soon as you make picks.)")
-else:
-    bye_counts = my_picks.groupby("Bye").size().rename("Count").reset_index()
-    chart = alt.Chart(bye_counts).mark_bar().encode(
-        x=alt.X("Bye:O", title="Bye Week"),
-        y=alt.Y("Count:Q", title="# of Your Players"),
-        tooltip=["Bye", "Count"]
-    )
-    st.altair_chart(chart, use_container_width=True)
-
-# ==========================
 # VISUAL TIER BOARD & BEST VALUE
 # ==========================
 st.subheader("Visual Tier Board — All Positions")
@@ -552,7 +537,7 @@ for i, pos in enumerate(positions):
                 cards_html.append(f"""
                 <div style='border: 2px solid {border}; border-radius: 10px; padding: 8px; margin: 6px; {risk_glow} background-color:{card_color}; opacity:{'0.4' if drafted_flag else '1'};'>
                     <div style='font-weight:700'>{name}</div>
-                    <div style='font-size:12px; color:#666'>{team_val} • Bye {bye_val}</div>
+                    <div style='font-size:12px'>{team_val} • Bye {bye_val}</div>
                     <div style='margin-top:4px; font-size:13px'>Pts 25: <b>{pts_val}</b> &nbsp; | &nbsp; ADP: <b>{adp_val}</b></div>
                 </div>
                 """)
@@ -606,7 +591,7 @@ else:
 
     st.markdown("**ADP vs Draft Trends**")
     if {"Draft Pick #", adp_source, "Pos", "Name"}.issubset(drafted.columns):
-        trend = drafted.dropna(subset=["Draft Pick #", adp_source]).copy()
+        trend = drafted.dropna(subset=["Draft Pick #", adp_source])[drafted['Draft Pick #'] > 0].copy()
         trend["Draft Pick #"] = trend["Draft Pick #"].astype(int)
         chart = alt.Chart(trend).mark_circle(size=70).encode(
             x=alt.X("Draft Pick #", title="Overall Draft Pick"),
