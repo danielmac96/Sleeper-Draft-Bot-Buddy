@@ -467,9 +467,9 @@ else:
         if p not in team_pos_counts.columns:
             team_pos_counts[p] = 0
 
-    st.markdown("**Team Positional Counts (colored by more/less)**")
-    styled_counts = team_pos_counts.style.background_gradient(cmap='RdYlGn', axis=0)
-    st.dataframe(styled_counts)
+    # st.markdown("**Team Positional Counts (colored by more/less)**")
+    # styled_counts = team_pos_counts.style.background_gradient(cmap='RdYlGn', axis=0)
+    # st.dataframe(styled_counts)
 
     # Run detection
     st.markdown("**Run Detection (last 14 picks)**")
