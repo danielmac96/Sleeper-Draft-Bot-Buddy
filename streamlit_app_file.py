@@ -468,7 +468,7 @@ colC.metric("Picks Until You", picks_until)
 # ==========================
 # LOWEST TIER REMAINING BY POSITION
 # ==========================
-undrafted = final_base_data_draft_flag[final_base_data_draft_flag["Draft Team"].isna()].copy()
+undrafted = final_base_data_draft_flag[final_base_data_draft_flag["Draft Pick #"] == 0].copy()
 tiers = sorted(undrafted["Tier"].dropna().unique())
 positions = ["QB", "RB", "WR", "TE"]
 data = []
