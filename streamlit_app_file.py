@@ -605,7 +605,7 @@ ascending = st.radio("Sort order:", ["Ascending", "Descending"], horizontal=True
 
 # Positions selector
 pos_choice = st.selectbox("Choose Position:", ["QB", "RB", "WR", "TE"])
-
+st.table(pos_choice)
 # Filter + sort
 pos_df = pool[pool["Pos"] == pos_choice].copy()
 if sort_metric in pos_df.columns:
