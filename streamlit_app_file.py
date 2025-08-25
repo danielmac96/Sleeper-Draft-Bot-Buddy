@@ -360,6 +360,9 @@ total_rounds = st.sidebar.number_input("Total Rounds", min_value=8, max_value=24
 your_slot = st.sidebar.number_input("Your Draft Slot", min_value=1, max_value=league_size, value=1, step=1)
 snake = st.sidebar.checkbox("Snake Draft", value=True)
 
+positions = ["QB", "RB", "WR", "TE"]
+drafted = final_base_data_draft_flag.dropna(subset=["Draft Team"]).copy()
+
 # ADP source
 adp_source = st.sidebar.selectbox("ADP Source", ["ADP HPPR", "ADP 2QB"], index=0)
 
@@ -420,6 +423,18 @@ colA.metric("Picks Made #", current_pick)
 colB.metric("Your Next Pick #", next_pick if next_pick else "—")
 colC.metric("Picks Until You", picks_until)
 
+# Run detection for colD
+lastN = drafted.sort_values("Draft Pick #", ascending=False).head(14)
+run_counts = lastN["Pos"].value_counts()
+run_text = ", ".join([f"{pos}: {count}" for pos, count in run_counts.items()]) if not run_counts.empty else "No picks yet"
+colD.metric("Run Detection (last 14 picks)", run_text)
+
+
+# Optional: existing warning if a run is happening
+hot_pos = run_counts.index[0] if not run_counts.empty else None
+if hot_pos and run_counts.iloc[0] >= 6:
+  st.warning(f"{hot_pos} run in progress: {int(run_counts.iloc[0])} selected in last 14 picks")
+
 # ==========================
 # MY PICKS TRACKER
 # ==========================
@@ -454,9 +469,6 @@ else:
 # LEAGUE-WIDE INSIGHTS
 # ==========================
 st.subheader("🌐 League-Wide Insights")
-
-positions = ["QB", "RB", "WR", "TE"]
-drafted = final_base_data_draft_flag.dropna(subset=["Draft Team"]).copy()
 
 if drafted.empty:
     st.info("Once draft picks populate, this section will show opponent needs and trends.")
