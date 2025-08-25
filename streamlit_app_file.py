@@ -450,11 +450,23 @@ if not my_picks.empty:
           if not df_pos.empty:
               for _, row in df_pos.iterrows():
                   proj_val = round(row['Pts 25'], 1) if pd.notna(row['Pts 25']) else "-"
+                  # st.markdown(f"""
+                  # <div style='border: 2px solid {position_colors.get(pos, "#cccccc")}; border-radius: 10px; padding: 8px; margin: 6px; background-color:#2f2f2f; color:#f0f0f0;'>
+                  #     <div style='font-weight:700'>{row['Name']}</div>
+                  #     <div style='font-size:12px'>{row['Team']} • Bye {row['Bye']}</div>
+                  #     <div style='margin-top:4px; font-size:13px'>Proj: <b>{proj_val}</b></div>
+                  # </div>
+                  # """, unsafe_allow_html=True)
                   st.markdown(f"""
-                  <div style='border: 2px solid {position_colors.get(pos, "#cccccc")}; border-radius: 10px; padding: 8px; margin: 6px; background-color:#2f2f2f; color:#f0f0f0;'>
+                  <div style='border: 2px solid {position_colors.get(pos, "#cccccc")};
+                              border-radius: 10px; padding: 8px; margin: 6px;
+                              background-color:#2f2f2f; color:#f0f0f0;
+                              display: grid; grid-template-columns: 1fr 1fr 1fr; align-items:center;'>
+
                       <div style='font-weight:700'>{row['Name']}</div>
-                      <div style='font-size:12px'>{row['Team']} • Bye {row['Bye']}</div>
-                      <div style='margin-top:4px; font-size:13px'>Proj: <b>{proj_val}</b></div>
+                      <div style='font-size:12px; text-align:center;'>{row['Team']} • Bye {row['Bye']}</div>
+                      <div style='font-size:13px; text-align:right;'>Proj: <b>{proj_val}</b></div>
+
                   </div>
                   """, unsafe_allow_html=True)
           else:
