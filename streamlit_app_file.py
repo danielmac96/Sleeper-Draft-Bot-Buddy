@@ -343,10 +343,13 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import altair as alt
+import matplotlib
+
 
 # ==========================
 # CONFIG & ASSUMPTIONS
 # ==========================
+
 st.set_page_config(page_title="Fantasy Draft War Room", layout="wide")
 
 # ==========================
@@ -415,16 +418,66 @@ else:
 # ==========================
 current_pick, next_pick, picks_until = next_pick_info(final_base_data_draft_flag, league_size, total_rounds, your_slot, snake)
 
-colA, colB, colC, colD = st.columns(4)
+colA, colB, colC, colD, colE, colF, colG, colH = st.columns(8)
 colA.metric("Picks Made #", current_pick)
 colB.metric("Your Next Pick #", next_pick if next_pick else "—")
 colC.metric("Picks Until You", picks_until)
+
+full_draft_order = []
+for rnd in range(1, total_rounds + 1):
+    if snake and (rnd % 2 == 0):
+        # Snake round: picks go from league_size down to 1
+        round_picks = [(rnd, slot, (rnd - 1) * league_size + (league_size - slot + 1)) for slot in range(1, league_size + 1)][::-1]
+    else:
+        # Standard round: picks go from 1 to league_size
+        round_picks = [(rnd, slot, (rnd - 1) * league_size + slot) for slot in range(1, league_size + 1)]
+    full_draft_order.extend(round_picks)
+
+full_draft_df = pd.DataFrame(full_draft_order, columns=['Round', 'Draft_Slot', 'Overall_Pick'])
+
+if next_pick is not None:
+    picks_in_window = full_draft_df[(full_draft_df['Overall_Pick'] > current_pick) & (full_draft_df['Overall_Pick'] < next_pick)].copy()
+
+    teams_in_window_counts = picks_in_window['Draft_Slot'].value_counts().reset_index()
+    teams_in_window_counts.columns = ['Draft_Slot', 'Picks_in_Window']
+
+    if 'team_pos_counts' in locals():
+        teams_below_qb_threshold = team_pos_counts.loc['QB'] < 2
+        teams_needing_qb = team_pos_counts.columns[teams_below_qb_threshold].tolist()
+        needy_qb_teams_in_window = teams_in_window_counts[teams_in_window_counts['Draft_Slot'].isin(teams_needing_qb)]
+        potential_qb_picks_ahead_of_next_pick = needy_qb_teams_in_window['Picks_in_Window'].sum()
+
+        teams_below_rb_threshold = team_pos_counts.loc['RB'] < 3
+        teams_needing_rb = team_pos_counts.columns[teams_below_rb_threshold].tolist()
+        needy_rb_teams_in_window = teams_in_window_counts[teams_in_window_counts['Draft_Slot'].isin(teams_needing_rb)]
+        potential_rb_picks_ahead_of_next_pick = needy_rb_teams_in_window['Picks_in_Window'].sum()
+
+        teams_below_wr_threshold = team_pos_counts.loc['WR'] < 3
+        teams_needing_wr = team_pos_counts.columns[teams_below_wr_threshold].tolist()
+        needy_wr_teams_in_window = teams_in_window_counts[teams_in_window_counts['Draft_Slot'].isin(teams_needing_wr)]
+        potential_wr_picks_ahead_of_next_pick = needy_wr_teams_in_window['Picks_in_Window'].sum()
+
+        teams_below_te_threshold = team_pos_counts.loc['TE'] < 1
+        teams_needing_te = team_pos_counts.columns[teams_below_te_threshold].tolist()
+        needy_te_teams_in_window = teams_in_window_counts[teams_in_window_counts['Draft_Slot'].isin(teams_needing_te)]
+        potential_te_picks_ahead_of_next_pick = needy_te_teams_in_window['Picks_in_Window'].sum()
+
+    else:
+        pass
+
+else:
+    print("\nCannot determine picks in the window as 'next_pick' is not available.")
+
+colD.metric("Need QB", potential_qb_picks_ahead_of_next_pick)
+colE.metric("Need RB", potential_rb_picks_ahead_of_next_pick)
+colF.metric("Need WR", potential_wr_picks_ahead_of_next_pick)
+colG.metric("Need TE", potential_te_picks_ahead_of_next_pick)
 
 # Run detection for colD
 lastN = drafted.sort_values("Draft Pick #", ascending=False).head(14)
 run_counts = lastN["Pos"].value_counts()
 run_text = ", ".join([f"{pos}: {count}" for pos, count in run_counts.items()]) if not run_counts.empty else "No picks yet"
-colD.metric("Run Detection (last 14 picks)", run_text)
+colH.metric("Run Detection (last 14 picks)", run_text)
 
 
 # Optional: existing warning if a run is happening
@@ -441,34 +494,26 @@ my_picks = final_base_data_draft_flag[final_base_data_draft_flag["Draft Team"] =
 position_colors = {"QB": "#4a90e2", "RB": "#50e3c2", "WR": "#e94e77", "TE": "#f5a623"}
 
 if not my_picks.empty:
-  positions = ["QB", "RB", "WR", "TE"]
-  cols = st.columns(4)
-  for i, pos in enumerate(positions):
-      with cols[i]:
-          st.markdown(f"**{pos}s**")
-          df_pos = my_picks[my_picks["Pos"] == pos][["Name", "Team", "Bye", "Pts 25","Pts 24"]].reset_index(drop=True)
-          if not df_pos.empty:
-              for _, row in df_pos.iterrows():
-                  proj_val = round(row['Pts 25'], 1) if pd.notna(row['Pts 25']) else "-"
-                  stat_val = round(row['Pts 24'], 1) if pd.notna(row['Pts 24']) else "-"
-                  # st.markdown(f"""
-                  # <div style='border: 2px solid {position_colors.get(pos, "#cccccc")}; border-radius: 10px; padding: 8px; margin: 6px; background-color:#2f2f2f; color:#f0f0f0;'>
-                  #     <div style='font-weight:700'>{row['Name']}</div>
-                  #     <div style='font-size:12px'>{row['Team']} • Bye {row['Bye']}</div>
-                  #     <div style='margin-top:4px; font-size:13px'>Proj: <b>{proj_val}</b></div>
-                  # </div>
-                  # """, unsafe_allow_html=True)
-                  st.markdown(f"""
-                  <div style='border: 2px solid {position_colors.get(pos, "#cccccc")}; border-radius: 10px; padding: 8px; margin: 6px; background-color:#2f2f2f; color:#f0f0f0; display: grid; grid-template-columns: 1fr 1fr 1fr; align-items:center;'>
-                      <div style='font-weight:700'>{row['Name']} style='font-size:12px; text-align:center;'>{row['Team']} • Bye {row['Bye']}</div>
-                      <div style='font-size:12px; text-align:center;'>{row['Team']} • Bye {row['Bye']}</div>
-                      <div style='font-size:13px; text-align:right;'>2024 Stat: {stat_val} 2025 Proj: {proj_val}</div>
-                  </div>
-                  """, unsafe_allow_html=True)
-          else:
-              st.write("—")
+    positions = ["QB", "RB", "WR", "TE"]
+    cols = st.columns(4)
+    for i, pos in enumerate(positions):
+        with cols[i]:
+            st.markdown(f"**{pos}s**")
+            df_pos = my_picks[my_picks["Pos"] == pos][["Name", "Team", "Bye", "Pts 25"]].reset_index(drop=True)
+            if not df_pos.empty:
+                for _, row in df_pos.iterrows():
+                    proj_val = round(row['Pts 25'], 1) if pd.notna(row['Pts 25']) else "-"
+                    st.markdown(f"""
+                    <div style='border: 2px solid {position_colors.get(pos, "#cccccc")}; border-radius: 10px; padding: 8px; margin: 6px; background-color:#2f2f2f; color:#f0f0f0;'>
+                        <div style='font-weight:700'>{row['Name']}</div>
+                        <div style='font-size:12px'>{row['Team']} • Bye {row['Bye']}</div>
+                        <div style='margin-top:4px; font-size:13px'>Proj: <b>{proj_val}</b></div>
+                    </div>
+                    """, unsafe_allow_html=True)
+            else:
+                st.write("—")
 else:
-  st.info("No picks yet — will populate as draft progresses.")
+    st.info("No picks yet — will populate as draft progresses.")
 
 # ==========================
 # LEAGUE-WIDE INSIGHTS
@@ -483,6 +528,8 @@ else:
 
     # Pivot: rows = Pos, cols = Draft Team
     team_pos_counts = drafted.groupby(["Pos", "Draft Team"]).size().unstack(fill_value=0)
+
+
     # Custom color function
     def color_counts(val):
         if val >= 2:
@@ -504,7 +551,7 @@ else:
     )
 
     st.markdown("**Team Positional Counts (filtered, centered, and color-coded)**")
-    st.table(styled_counts)
+    st.dataframe(styled_counts)
 
     st.markdown("**ADP vs Draft Trends**")
     if {"Draft Pick #", adp_source, "Pos", "Name"}.issubset(drafted.columns):
@@ -538,3 +585,4 @@ else:
 
         chart = identity_line + vlines + points
         st.altair_chart(chart, use_container_width=True)
+
