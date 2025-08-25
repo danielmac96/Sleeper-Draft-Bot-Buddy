@@ -376,13 +376,6 @@ w_pts = st.sidebar.slider("Weight: Projected Points", 0.0, 2.0, 1.0, 0.1)
 w_adp = st.sidebar.slider("Weight: ADP Gap", 0.0, 2.0, 0.7, 0.1)
 w_scar = st.sidebar.slider("Weight: Positional Scarcity", 0.0, 2.0, 0.6, 0.1)
 
-# Starter assumptions
-st.sidebar.subheader("Starter Slots Per Team")
-starter_qb = st.sidebar.number_input("QB starters", 0, 2, 1)
-starter_rb = st.sidebar.number_input("RB starters", 0, 4, 2)
-starter_wr = st.sidebar.number_input("WR starters", 0, 5, 2)
-starter_te = st.sidebar.number_input("TE starters", 0, 3, 1)
-
 # ==========================
 # HELPER FUNCTIONS
 # ==========================
