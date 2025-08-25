@@ -345,7 +345,6 @@ import altair as alt
 # ==========================
 # CONFIG & ASSUMPTIONS
 # ==========================
-
 st.set_page_config(page_title="Fantasy Draft War Room", layout="wide")
 
 # ==========================
