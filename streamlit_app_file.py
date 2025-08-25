@@ -475,8 +475,6 @@ else:
 
     # Pivot: rows = Pos, cols = Draft Team
     team_pos_counts = drafted.groupby(["Pos", "Draft Team"]).size().unstack(fill_value=0)
-
-
     # Custom color function
     def color_counts(val):
         if val >= 2:
@@ -498,7 +496,7 @@ else:
     )
 
     st.markdown("**Team Positional Counts (filtered, centered, and color-coded)**")
-    st.dataframe(styled_counts)
+    st.table(styled_counts)
 
     st.markdown("**ADP vs Draft Trends**")
     if {"Draft Pick #", adp_source, "Pos", "Name"}.issubset(drafted.columns):
