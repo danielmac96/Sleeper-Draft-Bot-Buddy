@@ -342,6 +342,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import altair as alt
+import matplotlib
 
 # ==========================
 # CONFIG & ASSUMPTIONS
@@ -426,6 +427,8 @@ colC.metric("Picks Until You", picks_until)
 st.markdown("### My Picks")
 my_picks = final_base_data_draft_flag[final_base_data_draft_flag["Draft Team"] == my_team]
 
+position_colors = {"QB": "#4a90e2", "RB": "#50e3c2", "WR": "#e94e77", "TE": "#f5a623"}
+
 if not my_picks.empty:
     positions = ["QB", "RB", "WR", "TE"]
     cols = st.columns(4)
@@ -435,11 +438,12 @@ if not my_picks.empty:
             df_pos = my_picks[my_picks["Pos"] == pos][["Name", "Team", "Bye", "Pts 25"]].reset_index(drop=True)
             if not df_pos.empty:
                 for _, row in df_pos.iterrows():
+                    proj_val = round(row['Pts 25'], 1) if pd.notna(row['Pts 25']) else "-"
                     st.markdown(f"""
-                    <div style='border: 2px solid #cccccc; border-radius: 10px; padding: 8px; margin: 6px; background-color:white;'>
+                    <div style='border: 2px solid {position_colors.get(pos, "#cccccc")}; border-radius: 10px; padding: 8px; margin: 6px; background-color:#2f2f2f; color:#f0f0f0;'>
                         <div style='font-weight:700'>{row['Name']}</div>
                         <div style='font-size:12px'>{row['Team']} • Bye {row['Bye']}</div>
-                        <div style='margin-top:4px; font-size:13px'>Proj: <b>{row['Pts 25']}</b></div>
+                        <div style='margin-top:4px; font-size:13px'>Proj: <b>{proj_val}</b></div>
                     </div>
                     """, unsafe_allow_html=True)
             else:
