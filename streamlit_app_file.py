@@ -552,6 +552,7 @@ else:
     st.dataframe(styled_counts)
 
     st.markdown("**ADP vs Draft Trends**")
+    st.text("DEBUG: end-league wide")
     if {"Draft Pick #", adp_source, "Pos", "Name"}.issubset(drafted.columns):
         trend = drafted.dropna(subset=["Draft Pick #", adp_source])
         trend = trend[trend['Draft Pick #'] > 0].copy()
