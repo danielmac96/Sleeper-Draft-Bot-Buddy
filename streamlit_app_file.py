@@ -479,7 +479,7 @@ else:
 
     st.markdown("**Team Positional Counts (Positions as rows, Teams as columns, colored by row)**")
     # Apply row-wise color gradient
-    styled_counts = team_pos_counts.style.background_gradient(cmap='RdYlGn', axis=1)
+    styled_counts = team_pos_counts.style.highlight_max(axis=1, color='#7CFC00').highlight_min(axis=1, color='#FF6347')
     st.dataframe(styled_counts)
 
     st.markdown("**ADP vs Draft Trends**")
