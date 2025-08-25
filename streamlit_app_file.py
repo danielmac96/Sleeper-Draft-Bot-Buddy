@@ -463,10 +463,14 @@ else:
         if p not in team_pos_counts.columns:
             team_pos_counts[p] = np.nan
 
-    # Color coding high vs low by column
-    # styled_counts = team_pos_counts.style.background_gradient(cmap='RdYlGn_r', axis=0, low=0.0, high=1.0)
-    # st.markdown("**Opponent Positional Counts (colored by low/high values)**")
-    # st.dataframe(styled_counts)
+    st.markdown("**Team Positional Counts (colored by more/less)**")
+    drafted = final_base_data_draft_flag.dropna(subset=["Draft Team"]).copy()
+    team_pos_counts = drafted.groupby(["Draft Team", "Pos"]).size().unstack(fill_value=0)
+    for p in ["QB", "RB", "WR", "TE"]:
+        if p not in team_pos_counts.columns:
+            team_pos_counts[p] = 0
+    styled_counts = team_pos_counts.style.background_gradient(cmap='RdYlGn', axis=0)
+    st.dataframe(styled_counts)
 
     st.markdown("**Run Detection (last 14 picks)**")
     lastN = drafted.sort_values("Draft Pick #", ascending=False).head(14)
@@ -481,10 +485,30 @@ else:
         trend = drafted.dropna(subset=["Draft Pick #", adp_source])
         trend = trend[trend['Draft Pick #'] > 0].copy()
         trend["Draft Pick #"] = trend["Draft Pick #"].astype(int)
-        chart = alt.Chart(trend).mark_circle(size=70).encode(
+
+        base = alt.Chart(trend)
+        # x=y reference line
+        identity_line = alt.Chart(
+            pd.DataFrame({'x': [0, trend['Draft Pick #'].max()], 'y': [0, trend['Draft Pick #'].max()]})).mark_line(
+            color='lightgray', strokeDash=[5, 5]).encode(
+            x='x:Q',
+            y='y:Q'
+        )
+
+        # vertical lines from point to x=y line
+        vlines = alt.Chart(trend).mark_rule(color='lightgray', strokeWidth=1, opacity=0.5).encode(
+            x='Draft Pick #:Q',
+            y='Draft Pick #:Q',
+            y2=f'{adp_source}:Q'
+        )
+
+        points = base.mark_circle(size=70).encode(
             x=alt.X("Draft Pick #", title="Overall Draft Pick"),
             y=alt.Y(f"{adp_source}:Q", title=f"{adp_source}"),
-            color=alt.Color("Pos:N", scale=alt.Scale(domain=["QB","RB","WR","TE"], range=["#4a90e2", "#50e3c2", "#e94e77", "#f5a623"])),
+            color=alt.Color("Pos:N", scale=alt.Scale(domain=["QB", "RB", "WR", "TE"],
+                                                     range=["#4a90e2", "#50e3c2", "#e94e77", "#f5a623"])),
             tooltip=["Name", "Team", "Pos", "Draft Pick #", adp_source]
         ).interactive()
+
+        chart = identity_line + vlines + points
         st.altair_chart(chart, use_container_width=True)
