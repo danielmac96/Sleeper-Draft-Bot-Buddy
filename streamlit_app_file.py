@@ -596,7 +596,7 @@ with col3:
 
 # Adjustable thresholds (keep below or add another row)
 min_points = st.slider(f"Minimum {points_choice}:", min_value=0, max_value=300, value=75)
-max_adp = st.slider(f"Maximum {adp_choice}:", min_value=0, max_value=300, value=200)
+max_adp = st.slider(f"Maximum {adp_choice}:", min_value=0, max_value=1000, value=200)
 
 if {adp_choice, points_choice, "Pos", "Name"}.issubset(final_base_data_draft_flag.columns):
     # Filter only main positions
@@ -635,13 +635,7 @@ st.subheader("📋 Draft Pool (Card View)")
 
 # Position colors
 position_colors = {"QB": "#4a90e2", "RB": "#50e3c2", "WR": "#e94e77", "TE": "#f5a623"}
-
-# Toggle drafted players
-include_drafted = st.checkbox("Include Drafted Players (Card View)", value=False)
-if include_drafted:
-    pool = final_base_data_draft_flag.copy()
-else:
-    pool = final_base_data_draft_flag[final_base_data_draft_flag["Draft Team"] == 0].copy()
+pool = final_base_data_draft_flag[final_base_data_draft_flag["Draft Team"] == 0].copy()
 
 # Metric options to sort by
 sort_metric = st.selectbox(
