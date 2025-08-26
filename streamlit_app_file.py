@@ -524,10 +524,10 @@ else:
         threshold = thresholds.get(pos, 1)
         if val >= threshold:
             return 'background-color: #50e3c2; color: black; text-align: center;'  # green
-        elif val == 1:
-            return 'background-color: #f5a623; color: black; text-align: center;'  # orange
         elif val == 0:
             return 'background-color: #e94e77; color: black; text-align: center;'  # red
+        elif val < threshold:
+            return 'background-color: #f5a623; color: black; text-align: center;'  # orange
         else:
             return 'text-align: center;'
 
