@@ -577,15 +577,20 @@ else:
 # ==========================
 st.markdown("**ADP vs Points Drop-off by Position**")
 
-# Let user choose metrics
-adp_choice = st.selectbox("Select ADP Metric:", ["ADP HPPR", "ADP 2QB"], index=0)
-points_choice = st.selectbox("Select Points Metric:", ["Pts 24", "Pts 25"], index=1)  # default to Pts 25
+# Create three columns for filters
+col1, col2, col3 = st.columns([1, 1, 2])
 
-# Position filter (multi-select)
-positions = ["QB", "RB", "WR", "TE"]
-selected_positions = st.multiselect("Select positions to include:", positions, default=positions)
+with col1:
+    adp_choice = st.selectbox("ADP Metric:", ["ADP HPPR", "ADP 2QB"], index=0)
 
-# Adjustable thresholds
+with col2:
+    points_choice = st.selectbox("Points Metric:", ["Pts 24", "Pts 25"], index=1)
+
+with col3:
+    positions = ["QB", "RB", "WR", "TE"]
+    selected_positions = st.multiselect("Positions:", positions, default=positions)
+
+# Adjustable thresholds (keep below or add another row)
 min_points = st.slider(f"Minimum {points_choice}:", min_value=0, max_value=300, value=75)
 max_adp = st.slider(f"Maximum {adp_choice}:", min_value=0, max_value=300, value=200)
 
