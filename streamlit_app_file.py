@@ -445,12 +445,12 @@ if next_pick is not None:
     needy_qb_teams_in_window = teams_in_window_counts[teams_in_window_counts['Draft_Slot'].isin(teams_needing_qb)]
     potential_qb_picks_ahead_of_next_pick = needy_qb_teams_in_window['Picks_in_Window'].sum()
 
-    teams_below_rb_threshold = team_pos_counts.loc['RB'] < 3
+    teams_below_rb_threshold = team_pos_counts.loc['RB'] < 4
     teams_needing_rb = team_pos_counts.columns[teams_below_rb_threshold].tolist()
     needy_rb_teams_in_window = teams_in_window_counts[teams_in_window_counts['Draft_Slot'].isin(teams_needing_rb)]
     potential_rb_picks_ahead_of_next_pick = needy_rb_teams_in_window['Picks_in_Window'].sum()
 
-    teams_below_wr_threshold = team_pos_counts.loc['WR'] < 3
+    teams_below_wr_threshold = team_pos_counts.loc['WR'] < 4
     teams_needing_wr = team_pos_counts.columns[teams_below_wr_threshold].tolist()
     needy_wr_teams_in_window = teams_in_window_counts[teams_in_window_counts['Draft_Slot'].isin(teams_needing_wr)]
     potential_wr_picks_ahead_of_next_pick = needy_wr_teams_in_window['Picks_in_Window'].sum()
