@@ -600,7 +600,7 @@ include_drafted = st.checkbox("Include Drafted Players (Card View)", value=False
 if include_drafted:
     pool = final_base_data_draft_flag.copy()
 else:
-    pool = final_base_data_draft_flag[final_base_data_draft_flag["Draft Team"].isna()].copy()
+    pool = final_base_data_draft_flag[final_base_data_draft_flag["Draft Team"] == 0].copy()
 
 # Metric options to sort by
 sort_metric = st.selectbox(
