@@ -579,35 +579,45 @@ st.markdown("**ADP vs Points Drop-off by Position**")
 
 # Let user choose metrics
 adp_choice = st.selectbox("Select ADP Metric:", ["ADP HPPR", "ADP 2QB"], index=0)
-points_choice = st.selectbox("Select Points Metric:", ["Pts 24", "Pts 25"], index=0)
+points_choice = st.selectbox("Select Points Metric:", ["Pts 24", "Pts 25"], index=1)  # default to Pts 25
+
+# Position filter (multi-select)
+positions = ["QB", "RB", "WR", "TE"]
+selected_positions = st.multiselect("Select positions to include:", positions, default=positions)
+
+# Adjustable thresholds
+min_points = st.slider(f"Minimum {points_choice}:", min_value=0, max_value=300, value=75)
+max_adp = st.slider(f"Maximum {adp_choice}:", min_value=0, max_value=300, value=200)
 
 if {adp_choice, points_choice, "Pos", "Name"}.issubset(final_base_data_draft_flag.columns):
     # Filter only main positions
-    pool = final_base_data_draft_flag[final_base_data_draft_flag["Pos"].isin(["QB", "RB", "WR", "TE"])].copy()
+    pool = final_base_data_draft_flag[final_base_data_draft_flag["Pos"].isin(selected_positions)].copy()
     pool = pool.dropna(subset=[adp_choice, points_choice])
 
-    # Take top 50 players per position by points metric
-    pool = pool.sort_values(points_choice, ascending=False)
-    pool = pool.groupby("Pos").head(50)
+    # Apply adjustable thresholds
+    pool = pool[(pool[points_choice] >= min_points) & (pool[adp_choice] <= max_adp)]
 
-    # Ensure numeric types
-    pool[adp_choice] = pd.to_numeric(pool[adp_choice], errors="coerce")
-    pool[points_choice] = pd.to_numeric(pool[points_choice], errors="coerce")
+    if not pool.empty:
+        # Ensure numeric types
+        pool[adp_choice] = pd.to_numeric(pool[adp_choice], errors="coerce")
+        pool[points_choice] = pd.to_numeric(pool[points_choice], errors="coerce")
 
-    # Altair chart
-    base = alt.Chart(pool)
+        # Altair chart
+        base = alt.Chart(pool)
 
-    lines = base.mark_line(point=True).encode(
-        x=alt.X(f"{adp_choice}:Q", title=adp_choice),
-        y=alt.Y(f"{points_choice}:Q", title=points_choice),
-        color=alt.Color("Pos:N", scale=alt.Scale(
-            domain=["QB", "RB", "WR", "TE"],
-            range=["#4a90e2", "#50e3c2", "#e94e77", "#f5a623"]
-        )),
-        tooltip=["Name", "Team", "Pos", adp_choice, points_choice]
-    )
+        lines = base.mark_line(point=True).encode(
+            x=alt.X(f"{adp_choice}:Q", title=adp_choice, scale=alt.Scale(domain=(0, max_adp))),
+            y=alt.Y(f"{points_choice}:Q", title=points_choice),
+            color=alt.Color("Pos:N", scale=alt.Scale(
+                domain=["QB", "RB", "WR", "TE"],
+                range=["#4a90e2", "#50e3c2", "#e94e77", "#f5a623"]
+            )),
+            tooltip=["Name", "Team", "Pos", adp_choice, points_choice]
+        )
 
-    st.altair_chart(lines.interactive(), use_container_width=True)
+        st.altair_chart(lines.interactive(), use_container_width=True)
+    else:
+        st.warning(f"No players match the filter criteria ({points_choice} ≥ {min_points} and {adp_choice} ≤ {max_adp}).")
 
 # ==========================
 # DRAFT POOL - CARD VIEW
