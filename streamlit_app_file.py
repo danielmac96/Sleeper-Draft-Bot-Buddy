@@ -626,7 +626,7 @@ def render_player_card(row):
     </div>
     """
     return card_html
-
+st.subheader("📋PLEASE UPDATE")
 # Display in 4-column grid
 cols = st.columns(4)
 for i, (_, row) in enumerate(pool.iterrows()):
