@@ -618,36 +618,32 @@ def render_player_card(row):
     border_color = position_colors.get(row["Pos"], "#444")
 
     card_html = f"""
-        <div style='border:2px solid {border_color};border-radius:12px;padding:12px;margin:8px;
-                    background-color:#2f2f2f;color:#f0f0f0;box-shadow:2px 2px 6px rgba(0,0,0,0.4);'>
-            <!-- Player Name -->
-            <div style='font-weight:700;font-size:15px'>{row['Name']} ({row['Pos']})</div>
+    <div style='border:2px solid {border_color};border-radius:12px;padding:12px;margin:8px;
+                background-color:#2f2f2f;color:#f0f0f0;box-shadow:2px 2px 6px rgba(0,0,0,0.4);'>
 
-            <!-- Top line: Team, Bye, Tier, SOS -->
-            <div style='font-size:12px;opacity:0.85;'>
-                {row['Team']} • Bye {row['Bye']} • Tier: <b>{row.get('Tier', '—')}</b> • SOS: <b>{row.get('SOS', '—')}</b>
-            </div>
+        <div style='font-weight:700;font-size:15px'>{row['Name']} ({row['Pos']})</div>
 
-            <hr style="border:0.5px solid #555;margin:6px 0;" />
-
-            <!-- Depth & Exp -->
-            <div style='font-size:12px;opacity:0.85;'>
-                Depth: <b>{row.get('Depth', '—')}</b> • Exp: <b>{row.get('Exp', '—')}</b>
-            </div>
-
-            <!-- ADP section -->
-            <div style='font-size:13px; margin-top:6px;'>
-                ADP HPPR: <b>{row.get('ADP HPPR', '—')}</b> • ADP 2QB: <b>{row.get('ADP 2QB', '—')}</b>
-            </div>
-
-            <!-- Rank + Points -->
-            <div style='font-size:13px; margin-top:6px;'>
-                Rank 24: <b>{rank24}</b> • Pts 24: <b>{pts24}</b>
-            </div>
-            <div style='font-size:13px'>
-                Rank 25: <b>{rank25}</b> • Pts 25: <b>{pts25}</b>
-            </div>
+        <div style='font-size:12px;opacity:0.85;'>
+            {row['Team']} • Bye {row['Bye']} • Tier: <b>{row.get('Tier', '—')}</b> • SOS: <b>{row.get('SOS', '—')}</b>
         </div>
+
+        <hr style="border:0.5px solid #555;margin:6px 0;" />
+
+        <div style='font-size:12px;opacity:0.85;'>
+            Depth: <b>{row.get('Depth', '—')}</b> • Exp: <b>{row.get('Exp', '—')}</b>
+        </div>
+
+        <div style='font-size:13px; margin-top:6px;'>
+            ADP HPPR: <b>{row.get('ADP HPPR', '—')}</b> • ADP 2QB: <b>{row.get('ADP 2QB', '—')}</b>
+        </div>
+
+        <div style='font-size:13px; margin-top:6px;'>
+            Rank 24: <b>{rank24}</b> • Pts 24: <b>{pts24}</b>
+        </div>
+        <div style='font-size:13px'>
+            Rank 25: <b>{rank25}</b> • Pts 25: <b>{pts25}</b>
+        </div>
+    </div>
     """
     return card_html
 
