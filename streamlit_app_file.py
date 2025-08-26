@@ -418,7 +418,7 @@ else:
 # ==========================
 current_pick, next_pick, picks_until = next_pick_info(final_base_data_draft_flag, league_size, total_rounds, your_slot, snake)
 
-colA, colB, colC, colD, colE, colF, colG, colH = st.columns(8)
+colA, colB, colC, colD, colE, colF, colG= st.columns(7)
 colA.metric("Picks Made #", current_pick)
 colB.metric("Your Next Pick #", next_pick if next_pick else "—")
 colC.metric("Picks Until You", picks_until)
@@ -472,18 +472,6 @@ colE.metric("Need RB", potential_rb_picks_ahead_of_next_pick if potential_rb_pic
 colF.metric("Need WR", potential_wr_picks_ahead_of_next_pick if potential_wr_picks_ahead_of_next_pick else 0)
 colG.metric("Need TE", potential_te_picks_ahead_of_next_pick if potential_te_picks_ahead_of_next_pick else 0)
 
-# Run detection for colD
-lastN = drafted.sort_values("Draft Pick #", ascending=False).head(14)
-run_counts = lastN["Pos"].value_counts()
-run_text = ", ".join([f"{pos}: {count}" for pos, count in run_counts.items()]) if not run_counts.empty else "No picks yet"
-colH.metric("Run Detection (last 14 picks)", run_text)
-
-
-# Optional: existing warning if a run is happening
-hot_pos = run_counts.index[0] if not run_counts.empty else None
-if hot_pos and run_counts.iloc[0] >= 6:
-  st.warning(f"{hot_pos} run in progress: {int(run_counts.iloc[0])} selected in last 14 picks")
-
 # ==========================
 # MY PICKS TRACKER
 # ==========================
@@ -504,9 +492,11 @@ if not my_picks.empty:
                     proj_val = round(row['Pts 25'], 1) if pd.notna(row['Pts 25']) else "-"
                     st.markdown(f"""
                     <div style='border: 2px solid {position_colors.get(pos, "#cccccc")}; border-radius: 10px; padding: 8px; margin: 6px; background-color:#2f2f2f; color:#f0f0f0;'>
-                        <div style='font-weight:700'>{row['Name']}</div>
-                        <div style='font-size:12px'>{row['Team']} • Bye {row['Bye']}</div>
-                        <div style='margin-top:4px; font-size:13px'>Proj: <b>{proj_val}</b></div>
+                        <div>
+                          <span style='font-weight:700'>{row['Name']}</span>
+                          <span style='font-size:12px; margin-left:8px;'>{row['Team']} • Bye {row['Bye']}</span>
+                          <span style='font-size:13px; margin-left:8px;'>Proj: <b>{proj_val}</b></span>
+                        </div>
                     </div>
                     """, unsafe_allow_html=True)
             else:
@@ -628,17 +618,36 @@ def render_player_card(row):
     border_color = position_colors.get(row["Pos"], "#444")
 
     card_html = f"""
-    <div style='border:2px solid {border_color};border-radius:12px;padding:12px;margin:8px;
-                background-color:#2f2f2f;color:#f0f0f0;box-shadow:2px 2px 6px rgba(0,0,0,0.4);'>
-        <div style='font-weight:700;font-size:15px'>{row['Name']} ({row['Pos']})</div>
-        <div style='font-size:12px;opacity:0.85;'>{row['Team']} • Bye {row['Bye']}</div>
-        <hr style="border:0.5px solid #555;margin:6px 0;" />
-        <div style='font-size:13px'>Rank 24: <b>{rank24}</b> • Pts 24: <b>{pts24}</b></div>
-        <div style='font-size:13px'>Rank 25: <b>{rank25}</b> • Pts 25: <b>{pts25}</b></div>
-        <div style='font-size:13px'>Tier: <b>{row.get('Tier', '—')}</b> • SOS: <b>{row.get('SOS', '—')}</b></div>
-        <div style='font-size:13px'>ADP HPPR: <b>{row.get('ADP HPPR', '—')}</b> • ADP 2QB: <b>{row.get('ADP 2QB', '—')}</b></div>
-        <div style='font-size:13px'>Depth: <b>{row.get('Depth', '—')}</b> • Exp: <b>{row.get('Exp', '—')}</b></div>
-    </div>
+        <div style='border:2px solid {border_color};border-radius:12px;padding:12px;margin:8px;
+                    background-color:#2f2f2f;color:#f0f0f0;box-shadow:2px 2px 6px rgba(0,0,0,0.4);'>
+            <!-- Player Name -->
+            <div style='font-weight:700;font-size:15px'>{row['Name']} ({row['Pos']})</div>
+
+            <!-- Top line: Team, Bye, Tier, SOS -->
+            <div style='font-size:12px;opacity:0.85;'>
+                {row['Team']} • Bye {row['Bye']} • Tier: <b>{row.get('Tier', '—')}</b> • SOS: <b>{row.get('SOS', '—')}</b>
+            </div>
+
+            <hr style="border:0.5px solid #555;margin:6px 0;" />
+
+            <!-- Depth & Exp -->
+            <div style='font-size:12px;opacity:0.85;'>
+                Depth: <b>{row.get('Depth', '—')}</b> • Exp: <b>{row.get('Exp', '—')}</b>
+            </div>
+
+            <!-- ADP section -->
+            <div style='font-size:13px; margin-top:6px;'>
+                ADP HPPR: <b>{row.get('ADP HPPR', '—')}</b> • ADP 2QB: <b>{row.get('ADP 2QB', '—')}</b>
+            </div>
+
+            <!-- Rank + Points -->
+            <div style='font-size:13px; margin-top:6px;'>
+                Rank 24: <b>{rank24}</b> • Pts 24: <b>{pts24}</b>
+            </div>
+            <div style='font-size:13px'>
+                Rank 25: <b>{rank25}</b> • Pts 25: <b>{pts25}</b>
+            </div>
+        </div>
     """
     return card_html
 
