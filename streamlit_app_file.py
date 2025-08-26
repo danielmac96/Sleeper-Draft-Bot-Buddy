@@ -5,6 +5,7 @@ import glob
 import os
 league_id = '1182045780030189568'
 draft_id = '1263925767373328384'
+draft_slot = 9
 
 @st.cache_data
 def get_all_players():
@@ -362,7 +363,7 @@ if st.sidebar.button("🔄 Refresh Dashboard"):
     st.rerun()
 league_size = st.sidebar.number_input("League Size (teams)", min_value=4, max_value=16, value=14, step=1)
 total_rounds = st.sidebar.number_input("Total Rounds", min_value=8, max_value=24, value=15, step=1)
-your_slot = st.sidebar.number_input("Your Draft Slot", min_value=1, max_value=league_size, value=1, step=1)
+# your_slot = st.sidebar.number_input("Your Draft Slot", min_value=1, max_value=league_size, value=1, step=1)
 snake = st.sidebar.checkbox("Snake Draft", value=True)
 
 # ADP source
@@ -402,7 +403,7 @@ def next_pick_info(df: pd.DataFrame, league_size: int, total_rounds: int, your_s
 # DEDUCE YOUR TEAM FROM DRAFT SLOT
 # ==========================
 
-my_slot_picks = final_base_data_draft_flag[final_base_data_draft_flag["Draft Pick #"] == your_slot]
+my_slot_picks = final_base_data_draft_flag[final_base_data_draft_flag["Draft Pick #"] == draft_slot]
 if not my_slot_picks.empty:
     my_team = my_slot_picks.iloc[0]["Draft Team"]
 else:
@@ -411,7 +412,7 @@ else:
 # ==========================
 # COMMAND CENTER
 # ==========================
-current_pick, next_pick, picks_until = next_pick_info(final_base_data_draft_flag, league_size, total_rounds, your_slot, snake)
+current_pick, next_pick, picks_until = next_pick_info(final_base_data_draft_flag, league_size, total_rounds, draft_slot, snake)
 
 colA, colB, colC, colD, colE, colF, colG= st.columns(7)
 colA.metric("Picks Made #", current_pick)
@@ -599,7 +600,7 @@ max_adp = st.slider(f"Maximum {adp_choice}:", min_value=0, max_value=300, value=
 
 if {adp_choice, points_choice, "Pos", "Name"}.issubset(final_base_data_draft_flag.columns):
     # Filter only main positions
-    pool = final_base_data_draft_flag[final_base_data_draft_flag["Pos"].isin(selected_positions)].copy()
+    pool = undrafted[undrafted["Pos"].isin(selected_positions)].copy()
     pool = pool.dropna(subset=[adp_choice, points_choice])
 
     # Apply adjustable thresholds
@@ -645,7 +646,7 @@ else:
 # Metric options to sort by
 sort_metric = st.selectbox(
     "Sort players by:",
-    ["Rank 24", "Pts 24", "Rank 25", "Pts 25", "ADP HPPR", "ADP 2QB", "SOS", "Tier"],
+    ["Pts 24", "Pts 25", "ADP HPPR", "ADP 2QB", "Tier"],
     index=0
 )
 
