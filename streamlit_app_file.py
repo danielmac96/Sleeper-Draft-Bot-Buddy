@@ -356,7 +356,8 @@ st.set_page_config(page_title="Fantasy Draft War Room", layout="wide")
 # SIDEBAR: GLOBAL CONTROLS
 # ==========================
 st.sidebar.header("⚙️ Settings")
-
+if st.button("🔄 Refresh Dashboard"):
+    st.rerun()
 # Draft configuration
 league_size = st.sidebar.number_input("League Size (teams)", min_value=4, max_value=16, value=14, step=1)
 total_rounds = st.sidebar.number_input("Total Rounds", min_value=8, max_value=24, value=15, step=1)
@@ -365,13 +366,6 @@ snake = st.sidebar.checkbox("Snake Draft", value=True)
 
 # ADP source
 adp_source = st.sidebar.selectbox("ADP Source", ["ADP HPPR", "ADP 2QB"], index=0)
-
-# Scoring Actual or Projection
-score_source = st.sidebar.selectbox("Stats or Projections", ['Pts 2024', 'Pts 2025'], index=0)
-
-# Visibility / Sorting
-show_drafted = st.sidebar.checkbox("Show Drafted Players on Board", value=False)
-sort_option = st.sidebar.selectbox("Sort Players By", [adp_source, score_source])
 
 # ==========================
 # HELPER FUNCTIONS
@@ -508,7 +502,8 @@ else:
 # LEAGUE-WIDE INSIGHTS
 # ==========================
 st.subheader("🌐 League-Wide Insights")
-drafted = final_base_data_draft_flag.dropna(subset=["Draft Team"]).copy()
+drafted = final_base_data_draft_flag[final_base_data_draft_flag["Draft Team"] != 0]
+undrafted = final_base_data_draft_flag[final_base_data_draft_flag["Draft Team"] == 0]
 if drafted.empty:
     st.info("Once draft picks populate, this section will show opponent needs and trends.")
 else:
@@ -576,6 +571,43 @@ else:
         st.altair_chart(chart, use_container_width=True)
     else:
         pass
+
+# ==========================
+# ADP vs Points Drop-off Chart
+# ==========================
+st.markdown("**ADP vs Points Drop-off by Position**")
+
+# Let user choose metrics
+adp_choice = st.selectbox("Select ADP Metric:", ["ADP HPPR", "ADP 2QB"], index=0)
+points_choice = st.selectbox("Select Points Metric:", ["Pts 24", "Pts 25"], index=0)
+
+if {adp_choice, points_choice, "Pos", "Name"}.issubset(final_base_data_draft_flag.columns):
+    # Filter only main positions
+    pool = final_base_data_draft_flag[final_base_data_draft_flag["Pos"].isin(["QB", "RB", "WR", "TE"])].copy()
+    pool = pool.dropna(subset=[adp_choice, points_choice])
+
+    # Take top 50 players per position by points metric
+    pool = pool.sort_values(points_choice, ascending=False)
+    pool = pool.groupby("Pos").head(50)
+
+    # Ensure numeric types
+    pool[adp_choice] = pd.to_numeric(pool[adp_choice], errors="coerce")
+    pool[points_choice] = pd.to_numeric(pool[points_choice], errors="coerce")
+
+    # Altair chart
+    base = alt.Chart(pool)
+
+    lines = base.mark_line(point=True).encode(
+        x=alt.X(f"{adp_choice}:Q", title=adp_choice),
+        y=alt.Y(f"{points_choice}:Q", title=points_choice),
+        color=alt.Color("Pos:N", scale=alt.Scale(
+            domain=["QB", "RB", "WR", "TE"],
+            range=["#4a90e2", "#50e3c2", "#e94e77", "#f5a623"]
+        )),
+        tooltip=["Name", "Team", "Pos", adp_choice, points_choice]
+    )
+
+    st.altair_chart(lines.interactive(), use_container_width=True)
 
 # ==========================
 # DRAFT POOL - CARD VIEW
