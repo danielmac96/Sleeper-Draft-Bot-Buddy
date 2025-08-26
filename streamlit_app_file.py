@@ -3,7 +3,8 @@ import pandas as pd
 import streamlit as st
 import glob
 import os
-
+league_id = '1182045780030189568'
+draft_id = '1263925767373328384'
 
 @st.cache_data
 def get_all_players():
@@ -188,14 +189,14 @@ def process_fantasypros_df(file_path):
 
 
 st.title("Fantasy Football Projections")
-scoring_structure_dict, roster_limit_dict, roster_structure = league_rosters_scoring('1182045780030189568')
+scoring_structure_dict, roster_limit_dict, roster_structure = league_rosters_scoring(league_id)
 player_info = get_all_players()
 season_stats = get_season_stats(2024)
 season_projections = get_season_projections(2025)
 full_player_data = build_full_player_df(player_info, season_stats, season_projections)
 file_paths = glob.glob("FantasyPros_2025_Draft_*.csv")
 all_fantasypros_df = pd.concat([process_fantasypros_df(f) for f in file_paths], ignore_index=True)
-draft_picks_live = pull_live_draft('1232794131110055936')
+draft_picks_live = pull_live_draft(draft_id)
 
 ### Create and Clean Final Master Table
 
@@ -356,9 +357,9 @@ st.set_page_config(page_title="Fantasy Draft War Room", layout="wide")
 # SIDEBAR: GLOBAL CONTROLS
 # ==========================
 st.sidebar.header("⚙️ Settings")
-if st.button("🔄 Refresh Dashboard"):
-    st.rerun()
 # Draft configuration
+if st.sidebar.button("🔄 Refresh Dashboard"):
+    st.rerun()
 league_size = st.sidebar.number_input("League Size (teams)", min_value=4, max_value=16, value=14, step=1)
 total_rounds = st.sidebar.number_input("Total Rounds", min_value=8, max_value=24, value=15, step=1)
 your_slot = st.sidebar.number_input("Your Draft Slot", min_value=1, max_value=league_size, value=1, step=1)
