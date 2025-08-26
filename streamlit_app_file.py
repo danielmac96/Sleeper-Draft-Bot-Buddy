@@ -503,8 +503,10 @@ else:
 # LEAGUE-WIDE INSIGHTS
 # ==========================
 st.subheader("🌐 League-Wide Insights")
+
 drafted = final_base_data_draft_flag[final_base_data_draft_flag["Draft Team"] != 0]
 undrafted = final_base_data_draft_flag[final_base_data_draft_flag["Draft Team"] == 0]
+
 if drafted.empty:
     st.info("Once draft picks populate, this section will show opponent needs and trends.")
 else:
@@ -514,10 +516,13 @@ else:
     # Pivot: rows = Pos, cols = Draft Team
     team_pos_counts = drafted.groupby(["Pos", "Draft Team"]).size().unstack(fill_value=0)
 
+    # Position-specific thresholds
+    thresholds = {"QB": 2, "RB": 4, "WR": 4, "TE": 1}
 
-    # Custom color function
-    def color_counts(val):
-        if val >= 2:
+    # Apply color function based on row position
+    def color_by_position(val, pos):
+        threshold = thresholds.get(pos, 1)
+        if val >= threshold:
             return 'background-color: #50e3c2; color: black; text-align: center;'  # green
         elif val == 1:
             return 'background-color: #f5a623; color: black; text-align: center;'  # orange
@@ -526,16 +531,13 @@ else:
         else:
             return 'text-align: center;'
 
+    # Apply row-wise color based on position
+    styled_counts = team_pos_counts.style.apply(
+        lambda row: [color_by_position(val, row.name) for val in row],
+        axis=1
+    ).set_properties(**{'text-align': 'center'})
 
-    # Apply styling
-    styled_counts = (
-        team_pos_counts
-        .style
-        .applymap(color_counts)
-        .set_properties(**{'text-align': 'center'})
-    )
-
-    st.markdown("**Team Positional Counts (filtered, centered, and color-coded)**")
+    st.markdown("**Team Positional Counts (threshold-based, centered, and color-coded)**")
     st.dataframe(styled_counts)
 
     st.markdown("**ADP vs Draft Trends**")
