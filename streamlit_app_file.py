@@ -323,6 +323,7 @@ col_types = {
     'Pos': 'string',
     'Team': 'string'
 }
+final_base_data_draft_flag['SOS'] = final_base_data_draft_flag['SOS'].replace('-', None)
 
 for col, typ in col_types.items():
     if col in final_base_data_draft_flag.columns:
