@@ -553,7 +553,6 @@ else:
     st.dataframe(styled_counts)
 
     st.markdown("**ADP vs Draft Trends**")
-    st.text("DEBUG: end-league wide")
     if {"Draft Pick #", adp_source, "Pos", "Name"}.issubset(drafted.columns):
         trend = drafted.dropna(subset=["Draft Pick #", adp_source])
         trend = trend[trend['Draft Pick #'] > 0].copy()
@@ -588,15 +587,13 @@ else:
     else:
         pass
 
-st.text("DEBUG: end-league wide")
-st.text("DEBUG: post-league wide")
 # ==========================
 # DRAFT POOL - CARD VIEW
 # ==========================
 st.subheader("📋 Draft Pool (Card View)")
 
 # Toggle drafted players
-# include_drafted = st.checkbox("Include Drafted Players (Card View)", value=False)
+include_drafted = st.checkbox("Include Drafted Players (Card View)", value=False)
 pool = final_base_data_draft_flag.copy() #if include_drafted else final_base_data_draft_flag[final_base_data_draft_flag["Draft Team"].isna()]
 
 # Metric options to sort by
@@ -609,13 +606,9 @@ sort_metric = st.selectbox(
 # Sort ascending/descending
 ascending = st.radio("Sort order:", ["Ascending", "Descending"], horizontal=True) == "Ascending"
 
-# Positions selector
-pos_choice = st.selectbox("Choose Position:", ["QB", "RB", "WR", "TE"])
-st.table(pos_choice)
 # Filter + sort
-pos_df = pool[pool["Pos"] == pos_choice].copy()
-if sort_metric in pos_df.columns:
-    pos_df = pos_df.sort_values(by=sort_metric, ascending=ascending)
+if sort_metric in pool.columns:
+    pool = pool.sort_values(by=sort_metric, ascending=ascending)
 
 # Card rendering function
 def render_player_card(row):
@@ -636,6 +629,6 @@ def render_player_card(row):
 
 # Display in 4-column grid
 cols = st.columns(4)
-for i, (_, row) in enumerate(pos_df.iterrows()):
+for i, (_, row) in enumerate(pool.iterrows()):
     with cols[i % 4]:
         st.markdown(render_player_card(row), unsafe_allow_html=True)
