@@ -4,7 +4,7 @@ import streamlit as st
 import glob
 import os
 league_id = '1182045780030189568'
-draft_id = '1232794131110055936'
+draft_id = '1182045780030189569'
 #1182045780030189569
 draft_slot = 9
 
