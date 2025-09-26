@@ -346,7 +346,7 @@ st.sidebar.header("⚙️ Settings/Inputs")
 # Draft configuration
 if st.sidebar.button("🔄 Refresh Dashboard"):
     st.rerun()
-draft_id = st.sidebar.text_input("Enter Draft ID", value="", placeholder="1182045780030189569")
+draft_id = st.sidebar.text_input("Enter Draft ID", value="1182045780030189569", placeholder="1182045780030189569")
 league_size = st.sidebar.number_input("League Size (teams)", min_value=4, max_value=16, value=14, step=1)
 total_rounds = st.sidebar.number_input("Total Rounds", min_value=8, max_value=24, value=15, step=1)
 # your_slot = st.sidebar.number_input("Your Draft Slot", min_value=1, max_value=league_size, value=1, step=1)
