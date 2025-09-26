@@ -4,7 +4,7 @@ import streamlit as st
 import glob
 import os
 league_id = '1182045780030189568'
-draft_id = '1182045780030189569'
+# draft_id = '1182045780030189569'
 #1182045780030189569
 draft_slot = 9
 
@@ -198,7 +198,6 @@ season_projections = get_season_projections(2025)
 full_player_data = build_full_player_df(player_info, season_stats, season_projections)
 file_paths = glob.glob("FantasyPros_2025_Draft_*.csv")
 all_fantasypros_df = pd.concat([process_fantasypros_df(f) for f in file_paths], ignore_index=True)
-draft_picks_live = pull_live_draft(draft_id)
 
 ### Create and Clean Final Master Table
 
@@ -278,10 +277,6 @@ col_rename_map = {
     'pick_no': 'Draft Pick #'
 }
 
-final_base_data_draft_flag = pd.merge(
-    final_base_data,
-    draft_picks_live, on='player_id', how='left').rename(columns=col_rename_map)
-
 col_types = {
     # Decimal columns (round to 1 decimal)
     'Pts 2024': 'float',
@@ -326,18 +321,7 @@ col_types = {
     'Pos': 'string',
     'Team': 'string'
 }
-final_base_data_draft_flag['SOS'] = final_base_data_draft_flag['SOS'].replace('-', None)
 
-for col, typ in col_types.items():
-    if col in final_base_data_draft_flag.columns:
-        if typ == 'int':
-            final_base_data_draft_flag[col] = final_base_data_draft_flag[col].fillna(0).astype(int)
-        elif typ == 'float':
-            final_base_data_draft_flag[col] = final_base_data_draft_flag[col].astype(float).round(1)
-        elif typ == 'string':
-            final_base_data_draft_flag[col] = final_base_data_draft_flag[col].astype(str)
-
-drafted = final_base_data_draft_flag.dropna(subset=["Draft Team"]).copy()
 positions = ["QB", "RB", "WR", "TE"]
 ##########################################################################################################################################################################################
 ##########################################################################################################################################################################################
@@ -362,12 +346,32 @@ st.sidebar.header("⚙️ Settings")
 # Draft configuration
 if st.sidebar.button("🔄 Refresh Dashboard"):
     st.rerun()
+draft_id = st.sidebar.text_input("Enter Draft ID", value="", placeholder="1182045780030189569")
 league_size = st.sidebar.number_input("League Size (teams)", min_value=4, max_value=16, value=14, step=1)
 total_rounds = st.sidebar.number_input("Total Rounds", min_value=8, max_value=24, value=15, step=1)
 # your_slot = st.sidebar.number_input("Your Draft Slot", min_value=1, max_value=league_size, value=1, step=1)
 snake = st.sidebar.checkbox("Snake Draft", value=True)
 
 # ADP source
+draft_picks_live = pull_live_draft(draft_id)
+
+final_base_data_draft_flag = pd.merge(
+    final_base_data,
+    draft_picks_live, on='player_id', how='left').rename(columns=col_rename_map)
+
+final_base_data_draft_flag['SOS'] = final_base_data_draft_flag['SOS'].replace('-', None)
+
+for col, typ in col_types.items():
+    if col in final_base_data_draft_flag.columns:
+        if typ == 'int':
+            final_base_data_draft_flag[col] = final_base_data_draft_flag[col].fillna(0).astype(int)
+        elif typ == 'float':
+            final_base_data_draft_flag[col] = final_base_data_draft_flag[col].astype(float).round(1)
+        elif typ == 'string':
+            final_base_data_draft_flag[col] = final_base_data_draft_flag[col].astype(str)
+
+drafted = final_base_data_draft_flag.dropna(subset=["Draft Team"]).copy()
+
 adp_source = st.sidebar.selectbox("ADP Source", ["ADP HPPR", "ADP 2QB"], index=0)
 
 # ==========================
