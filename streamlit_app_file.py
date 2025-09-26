@@ -342,7 +342,7 @@ st.set_page_config(page_title="Fantasy Draft War Room", layout="wide")
 # ==========================
 # SIDEBAR: GLOBAL CONTROLS
 # ==========================
-st.sidebar.header("⚙️ Settings")
+st.sidebar.header("⚙️ Settings/Inputs")
 # Draft configuration
 if st.sidebar.button("🔄 Refresh Dashboard"):
     st.rerun()
