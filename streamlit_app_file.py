@@ -3,7 +3,7 @@ import pandas as pd
 import streamlit as st
 import glob
 import os
-league_id = '1182045780030189568'
+# league_id = '1182045780030189568'
 # draft_id = '1182045780030189569'
 #1182045780030189569
 draft_slot = 9
@@ -191,7 +191,6 @@ def process_fantasypros_df(file_path):
 
 
 st.title("Fantasy Football Projections")
-scoring_structure_dict, roster_limit_dict, roster_structure = league_rosters_scoring(league_id)
 player_info = get_all_players()
 season_stats = get_season_stats(2024)
 season_projections = get_season_projections(2025)
@@ -346,13 +345,19 @@ st.sidebar.header("⚙️ Settings/Inputs")
 # Draft configuration
 if st.sidebar.button("🔄 Refresh Dashboard"):
     st.rerun()
-draft_id = st.sidebar.text_input("Enter Draft ID", value="1182045780030189569", placeholder="1182045780030189569")
+
+league_id = st.sidebar.text_input("Enter League ID", value="1265099487919996928", placeholder="1265099487919996928")
+draft_id = st.sidebar.text_input("Enter Draft ID", value="1265099488637227008", placeholder="1265099488637227008")
 league_size = st.sidebar.number_input("League Size (teams)", min_value=4, max_value=16, value=14, step=1)
 total_rounds = st.sidebar.number_input("Total Rounds", min_value=8, max_value=24, value=15, step=1)
 # your_slot = st.sidebar.number_input("Your Draft Slot", min_value=1, max_value=league_size, value=1, step=1)
 snake = st.sidebar.checkbox("Snake Draft", value=True)
 
 # ADP source
+
+scoring_structure_dict, roster_limit_dict, roster_structure = league_rosters_scoring(league_id)
+
+
 draft_picks_live = pull_live_draft(draft_id)
 
 final_base_data_draft_flag = pd.merge(
