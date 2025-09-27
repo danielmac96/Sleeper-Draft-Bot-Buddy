@@ -348,17 +348,14 @@ if st.sidebar.button("🔄 Refresh Dashboard"):
 
 league_id = st.sidebar.text_input("Enter League ID", value="1265099487919996928", placeholder="1265099487919996928")
 draft_id = st.sidebar.text_input("Enter Draft ID", value="1265099488637227008", placeholder="1265099488637227008")
+scoring_structure_dict, roster_limit_dict, roster_structure = league_rosters_scoring(league_id)
+total_rounds = len(roster_structure)
+draft_picks_live = pull_live_draft(draft_id)
+league_size = max(draft_picks_live['draft_slot'])
 your_slot = st.sidebar.number_input("Your Draft Slot", min_value=1, max_value=league_size, value=1, step=1)
 snake = st.sidebar.checkbox("Snake Draft", value=True)
 
 # ADP source
-
-scoring_structure_dict, roster_limit_dict, roster_structure = league_rosters_scoring(league_id)
-total_rounds = len(roster_structure)
-
-draft_picks_live = pull_live_draft(draft_id)
-league_size = max(draft['draft_slot'])
-
 final_base_data_draft_flag = pd.merge(
     final_base_data,
     draft_picks_live, on='player_id', how='left').rename(columns=col_rename_map)
