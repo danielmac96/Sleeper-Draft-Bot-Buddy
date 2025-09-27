@@ -190,7 +190,7 @@ def process_fantasypros_df(file_path):
     return df[['first_name', 'last_name', 'position', 'sos_season', 'tiers']]
 
 
-st.title("Fantasy Football Projections")
+st.title("Fantasy Draftroom Dashboard")
 player_info = get_all_players()
 season_stats = get_season_stats(2024)
 season_projections = get_season_projections(2025)
@@ -348,17 +348,16 @@ if st.sidebar.button("🔄 Refresh Dashboard"):
 
 league_id = st.sidebar.text_input("Enter League ID", value="1265099487919996928", placeholder="1265099487919996928")
 draft_id = st.sidebar.text_input("Enter Draft ID", value="1265099488637227008", placeholder="1265099488637227008")
-league_size = st.sidebar.number_input("League Size (teams)", min_value=4, max_value=16, value=14, step=1)
-total_rounds = st.sidebar.number_input("Total Rounds", min_value=8, max_value=24, value=15, step=1)
-# your_slot = st.sidebar.number_input("Your Draft Slot", min_value=1, max_value=league_size, value=1, step=1)
+your_slot = st.sidebar.number_input("Your Draft Slot", min_value=1, max_value=league_size, value=1, step=1)
 snake = st.sidebar.checkbox("Snake Draft", value=True)
 
 # ADP source
 
 scoring_structure_dict, roster_limit_dict, roster_structure = league_rosters_scoring(league_id)
-
+total_rounds = len(roster_structure)
 
 draft_picks_live = pull_live_draft(draft_id)
+league_size = max(draft['draft_slot'])
 
 final_base_data_draft_flag = pd.merge(
     final_base_data,
@@ -605,8 +604,12 @@ with col3:
     selected_positions = st.multiselect("Positions:", positions, default=positions)
 
 # Adjustable thresholds (keep below or add another row)
-min_points = st.slider(f"Minimum {points_choice}:", min_value=0, max_value=300, value=75)
-max_adp = st.slider(f"Maximum {adp_choice}:", min_value=0, max_value=1000, value=200)
+col1, col2, col3 = st.columns([1,1])
+with col1:
+    min_points = st.slider(f"Minimum {points_choice}:", min_value=0, max_value=300, value=75)
+
+with col2:
+    max_adp = st.slider(f"Maximum {adp_choice}:", min_value=0, max_value=1000, value=200)
 
 if {adp_choice, points_choice, "Pos", "Name"}.issubset(final_base_data_draft_flag.columns):
     # Filter only main positions
