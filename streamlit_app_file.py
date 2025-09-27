@@ -352,7 +352,7 @@ scoring_structure_dict, roster_limit_dict, roster_structure = league_rosters_sco
 total_rounds = len(roster_structure)
 draft_picks_live = pull_live_draft(draft_id)
 league_size = max(draft_picks_live['draft_slot'])
-your_slot = st.sidebar.number_input("Your Draft Slot", min_value=1, max_value=league_size, value=1, step=1)
+draft_slot = st.sidebar.number_input("Your Draft Slot", min_value=1, max_value=league_size, value=1, step=1)
 snake = st.sidebar.checkbox("Snake Draft", value=True)
 
 # ADP source
@@ -601,7 +601,7 @@ with col3:
     selected_positions = st.multiselect("Positions:", positions, default=positions)
 
 # Adjustable thresholds (keep below or add another row)
-col1, col2, col3 = st.columns([1,1])
+col1, col2 = st.columns([1,1])
 with col1:
     min_points = st.slider(f"Minimum {points_choice}:", min_value=0, max_value=300, value=75)
 
