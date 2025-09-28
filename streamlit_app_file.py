@@ -642,7 +642,7 @@ if {adp_choice, points_choice, "Pos", "Name"}.issubset(final_base_data_draft_fla
 # ==========================
 # DRAFT POOL - CARD VIEW
 # ==========================
-st.subheader("📋 Draft Pool (Card View)")
+st.subheader("📋 Draft Pool (Card View) - Top 25 Available Per Position")
 
 # Position colors
 position_colors = {"QB": "#4a90e2", "RB": "#50e3c2", "WR": "#e94e77", "TE": "#f5a623"}
@@ -655,13 +655,15 @@ sort_metric = st.selectbox(
     index=0
 )
 
-# Sort ascending/descending
-ascending = st.radio("Sort order:", ["Ascending", "Descending"], horizontal=True) == "Ascending"
+# Automatically decide order
+if sort_metric in ["Pts 24", "Pts 25"]:
+    ascending = False   # Higher points first
+else:
+    ascending = True    # Lower ADP/Tier first
 
 # Filter + sort
 if sort_metric in pool.columns:
     pool = pool.sort_values(by=sort_metric, ascending=ascending)
-
 
 # Card rendering function
 def render_player_card(row):
@@ -694,7 +696,7 @@ cols = st.columns(4)
 pos_order = ["QB", "RB", "WR", "TE"]
 
 for idx, pos in enumerate(pos_order):
-    pos_players = pool[pool["Pos"] == pos]
+    pos_players = pool[pool["Pos"] == pos].head(25)
     with cols[idx]:
         for _, row in pos_players.iterrows():
             st.markdown(render_player_card(row), unsafe_allow_html=True)
