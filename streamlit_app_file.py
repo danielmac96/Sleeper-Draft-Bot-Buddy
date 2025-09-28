@@ -618,6 +618,7 @@ if {adp_choice, points_choice, "Pos", "Name"}.issubset(final_base_data_draft_fla
 
     if not pool.empty:
         # Ensure numeric types
+        pool = pool.sort_values(by=adp_choice)
         pool[adp_choice] = pd.to_numeric(pool[adp_choice], errors="coerce")
         pool[points_choice] = pd.to_numeric(pool[points_choice], errors="coerce")
 
