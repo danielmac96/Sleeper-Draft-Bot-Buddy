@@ -3,10 +3,12 @@ import pandas as pd
 import streamlit as st
 import glob
 import os
-# league_id = '1182045780030189568'
-# draft_id = '1182045780030189569'
-#1182045780030189569
-draft_slot = 9
+
+with open(".streamlit/config.toml", "w") as f:
+    f.write("""
+[theme]
+base="dark"
+""")
 
 @st.cache_data
 def get_all_players():
