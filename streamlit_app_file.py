@@ -4,12 +4,6 @@ import streamlit as st
 import glob
 import os
 
-with open(".streamlit/config.toml", "w") as f:
-    f.write("""
-[theme]
-base="dark"
-""")
-
 @st.cache_data
 def get_all_players():
     """Pull all active players with primary position and bye week."""
@@ -546,7 +540,7 @@ else:
         axis=1
     ).set_properties(**{'text-align': 'center'})
 
-    st.markdown("**Team Positional Counts (threshold-based, centered, and color-coded)**")
+    st.markdown("**Team Positional Counts**")
     st.dataframe(styled_counts)
 
     st.markdown("**ADP vs Draft Trends**")
@@ -644,7 +638,7 @@ if {adp_choice, points_choice, "Pos", "Name"}.issubset(final_base_data_draft_fla
 # ==========================
 # DRAFT POOL - CARD VIEW
 # ==========================
-st.subheader("📋 Draft Pool (Card View) - Top 25 Available Per Position")
+st.subheader("📋 Draft Pool Card View - Top 25 Available Per Position")
 
 # Position colors
 position_colors = {"QB": "#4a90e2", "RB": "#50e3c2", "WR": "#e94e77", "TE": "#f5a623"}
